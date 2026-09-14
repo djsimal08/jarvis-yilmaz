@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JARVIS Orb</title>
+<style>
+*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;background:transparent;overflow:hidden}
+body{display:grid;place-items:center;font-family:"Segoe UI",sans-serif}
+.orb{width:190px;height:190px;position:relative;display:grid;place-items:center;filter:drop-shadow(0 0 22px #00bfff)}
+.ring{position:absolute;inset:5%;border:2px solid #4de4ff;border-radius:50%;box-shadow:inset 0 0 15px #15bfff,0 0 15px #15bfff;animation:r 8s linear infinite}
+.ring:nth-child(2){inset:17%;border-style:dashed;animation-direction:reverse;animation-duration:4s}
+.ring:nth-child(3){inset:29%;animation-duration:2s}
+.core{width:70px;height:70px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 38% 32%,#fff,#27d5ff 18%,#043f70 55%,#00101d);border:1px solid white;color:#001321;font-size:27px;font-weight:900;box-shadow:0 0 18px white,0 0 48px #1ccfff}
+.label{position:absolute;bottom:-8px;color:#bff7ff;font-size:9px;letter-spacing:4px;text-shadow:0 0 9px #37dcff}
+@keyframes r{to{transform:rotate(360deg)}}.listening .ring{animation-duration:1.2s}.executing .core,.speaking .core{box-shadow:0 0 25px white,0 0 70px #1ccfff}
+</style>
+</head>
+<body>
+<div id="orb" class="orb idle"><div class="ring"></div><div class="ring"></div><div class="ring"></div><div class="core">J</div><div id="label" class="label">IDLE</div></div>
+<script>
+const orb=document.getElementById("orb"),label=document.getElementById("label");
+async function update(){try{const r=await fetch("/api/status"),d=await r.json(),m=String(d.mode||"IDLE");orb.className="orb "+m.toLowerCase();label.textContent=m}catch(_){}}
+update();setInterval(update,1000);
+</script>
+</body>
+</html>
