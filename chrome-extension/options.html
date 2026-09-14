@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"><title>JARVIS Chrome Eşleştirme</title>
+<style>
+body{margin:0;background:#030914;color:#eaf9ff;font:14px "Segoe UI",sans-serif;min-height:100vh;display:grid;place-items:center}
+main{width:min(520px,calc(100% - 40px));padding:30px;border:1px solid #239bc066;background:#07192b;border-radius:12px;box-shadow:0 0 50px #00bfff22}
+h1{letter-spacing:5px;color:#59e4ff}p{color:#91aebe;line-height:1.6}label{display:grid;gap:8px;color:#86dcef}
+input{padding:13px;background:#020914;border:1px solid #31cdec;color:white;font-size:22px;letter-spacing:8px;text-align:center}
+button{margin-top:16px;width:100%;padding:13px;background:#097fac;border:0;color:white;font-weight:700;cursor:pointer}
+#status{min-height:22px;margin-top:15px;color:#55e5a5}
+</style>
+</head>
+<body><main><h1>JARVIS</h1><h2>Chrome kontrolünü eşleştir</h2>
+<p>JARVIS dashboard → Ayarlar bölümündeki 6 haneli tek kullanımlık kodu girin. Uzun bağlantı anahtarı yalnızca Chrome'un yerel deposunda saklanır.</p>
+<label>Eşleştirme kodu<input id="code" maxlength="6" inputmode="numeric"></label>
+<button id="pair">GÜVENLİ EŞLEŞTİR</button><div id="status"></div>
+<script src="options.js"></script></main></body></html>

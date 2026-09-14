@@ -1,0 +1,76 @@
+name: Windows paketi
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["codex/jarvis-v0.1", "main"]
+    paths:
+      - "agent/**"
+      - "dashboard/**"
+      - "chrome-extension/**"
+      - "requirements.txt"
+      - "jarvis_launcher.py"
+      - "jarvis_orb.py"
+      - "install.ps1"
+      - ".github/workflows/build-windows.yml"
+      - "KURULUM.bat"
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Bağımlılıkları kur
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller pytest
+      - name: Güvenlik ve komut testleri
+        run: python -m pytest -q
+      - name: Python sözdizimini doğrula
+        run: python -m compileall -q agent
+      - name: Windows EXE oluştur
+        shell: pwsh
+        run: >
+          pyinstaller --noconfirm --clean --onefile --windowed --name JARVIS
+          --add-data "dashboard;dashboard"
+          --hidden-import win32timezone
+          --collect-all webview
+          --collect-all faster_whisper
+          jarvis_launcher.py
+      - name: Mini orb EXE oluştur
+        shell: pwsh
+        run: >
+          pyinstaller --noconfirm --clean --onefile --windowed --name JARVIS-Orb
+          --add-data "dashboard;dashboard"
+          --collect-all webview
+          jarvis_orb.py
+      - name: İndirme paketini hazırla
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path package | Out-Null
+          Copy-Item dist/JARVIS.exe package/JARVIS.exe
+          Copy-Item dist/JARVIS-Orb.exe package/JARVIS-Orb.exe
+          Copy-Item chrome-extension package/chrome-extension -Recurse
+          Copy-Item install.ps1,KURULUM.bat,README.md package/
+          @"
+          JARVIS KURULUMU
+          1. ZIP dosyasını tamamen çıkarın.
+          2. KURULUM.bat dosyasına çift tıklayın.
+          3. Kurulumdan sonra masaüstündeki JARVIS kısayolunu açın.
+          4. Chrome eklentisi için README talimatlarını izleyin.
+          "@ | Set-Content package/KURULUM.txt -Encoding UTF8
+          Compress-Archive -Path package/* -DestinationPath JARVIS-Yilmaz-Windows.zip -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-Yilmaz-Windows
+          path: JARVIS-Yilmaz-Windows.zip
+          if-no-files-found: error
+          retention-days: 30

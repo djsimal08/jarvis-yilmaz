@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>JARVIS — Kontrol Merkezi</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="grid-bg"></div>
+  <div class="scanline"></div>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">J</div>
+        <div><strong>JARVIS</strong><small>LOCAL CORE</small></div>
+      </div>
+      <nav>
+        <button class="nav-item active" data-target="main-panel"><span>◉</span>Ana Merkez</button>
+        <button class="nav-item" data-target="system-panel"><span>▦</span>PC Kontrolü</button>
+        <button class="nav-item" data-target="chrome-panel"><span>◎</span>Chrome</button>
+        <button class="nav-item" data-target="history-panel"><span>↻</span>Geçmiş</button>
+        <button class="nav-item" data-target="settings-panel"><span>⚙</span>Ayarlar</button>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="security"><i></i>Yalnızca localhost</div>
+        <small>JARVIS v0.1.0</small>
+      </div>
+    </aside>
+
+    <main>
+      <header>
+        <div>
+          <span class="eyebrow">KİŞİSEL YAPAY ZEKÂ SİSTEMİ</span>
+          <h1>Kontrol Merkezi</h1>
+        </div>
+        <div class="connection-strip">
+          <div class="status-chip"><i id="agent-dot"></i><span>Yerel Ajan</span><b id="agent-status">Bağlanıyor</b></div>
+          <div class="status-chip"><i id="chrome-dot"></i><span>Chrome</span><b id="chrome-status">Bağlı değil</b></div>
+          <div class="status-chip"><i id="ai-dot"></i><span>Yerel AI</span><b id="ai-status">Kontrol</b></div>
+        </div>
+      </header>
+
+      <section id="main-panel" class="panel active">
+        <div class="dashboard-grid">
+          <section class="left-stack">
+            <article class="glass system-card" id="system-panel">
+              <div class="card-head"><span>SİSTEM TELEMETRİSİ</span><i class="live-dot"></i></div>
+              <div class="metric"><div><span>CPU</span><b id="cpu-value">--%</b></div><div class="bar"><i id="cpu-bar"></i></div></div>
+              <div class="metric"><div><span>RAM</span><b id="ram-value">--%</b></div><div class="bar"><i id="ram-bar"></i></div></div>
+              <div class="metric"><div><span>DEPOLAMA</span><b id="disk-value">--%</b></div><div class="bar"><i id="disk-bar"></i></div></div>
+              <div class="mini-stats">
+                <div><small>İŞLEM</small><strong id="process-count">--</strong></div>
+                <div><small>AĞ</small><strong id="network-value">--</strong></div>
+              </div>
+            </article>
+            <article class="glass active-window">
+              <div class="card-head"><span>AKTİF PENCERE</span></div>
+              <div class="window-icon">▣</div>
+              <div><strong id="active-window">Bilgi bekleniyor</strong><small id="active-pid">PID —</small></div>
+            </article>
+          </section>
+
+          <section class="core">
+            <div id="orb" class="orb idle" aria-label="JARVIS durum göstergesi">
+              <div class="orbit orbit-a"></div><div class="orbit orbit-b"></div><div class="orbit orbit-c"></div>
+              <div class="orb-glow"></div>
+              <div class="orb-core"><span>J</span></div>
+              <div class="wave"><i></i><i></i><i></i><i></i><i></i></div>
+            </div>
+            <span id="mode-label" class="mode-label">IDLE</span>
+            <h2 id="greeting">Hazırım.</h2>
+            <p id="jarvis-message">Yerel yardımcı uygulama bağlantısı kontrol ediliyor.</p>
+            <button id="mic-button" class="mic-button" type="button"><span>●</span><b>Dinlemeyi Başlat</b></button>
+          </section>
+
+          <section class="right-stack">
+            <article class="glass" id="chrome-panel">
+              <div class="card-head"><span>CHROME SEKMELERİ</span><b id="tab-count">0</b></div>
+              <div id="tabs-list" class="list empty">Chrome eklentisi bekleniyor.</div>
+            </article>
+            <article class="glass" id="history-panel">
+              <div class="card-head"><span>SON İŞLEMLER</span><button id="refresh-history">Yenile</button></div>
+              <div id="history-list" class="list empty">Henüz işlem yok.</div>
+            </article>
+          </section>
+        </div>
+
+        <section class="command-deck glass">
+          <div class="command-input">
+            <span>›</span>
+            <input id="command-input" maxlength="4000" autocomplete="off" placeholder="Bir komut yazın… Örn: Chrome'u aç">
+            <button id="send-command" type="button">ÇALIŞTIR</button>
+          </div>
+          <div class="quick-actions">
+            <button data-command="Chrome'u aç">Chrome'u aç</button>
+            <button data-command="Sistem durumunu göster">Sistem durumu</button>
+            <button data-command="Açık sekmeleri say">Sekmeleri say</button>
+            <button data-command="Ekran görüntüsü al">Ekran görüntüsü</button>
+            <button id="mini-orb-button">Mini orb'u göster</button>
+            <button id="emergency-stop" class="danger">■ ACİL DURDUR</button>
+          </div>
+        </section>
+      </section>
+
+      <section id="settings-panel" class="panel settings-view">
+        <article class="glass settings-card">
+          <div class="card-head"><span>YEREL AYARLAR</span></div>
+          <label>Kullanıcı adı<input id="user-name" maxlength="80" placeholder="Adınız"></label>
+          <label class="toggle-row"><span>Türkçe sesli cevap</span><input id="voice-enabled" type="checkbox" checked></label>
+          <label>Türkçe ses<select id="voice-name"><option value="">Otomatik Türkçe ses</option></select></label>
+          <button id="save-profile" class="primary">Ayarları bu bilgisayara kaydet</button>
+        </article>
+        <article class="glass settings-card">
+          <div class="card-head"><span>CHROME EŞLEŞTİRME</span></div>
+          <p>Eklentinin Ayarlar sayfasına aşağıdaki tek kullanımlık kodu girin.</p>
+          <strong id="pair-code" class="pair-code">------</strong>
+          <small id="pair-time">Kod hazırlanıyor…</small>
+        </article>
+        <article class="glass settings-card warning-card">
+          <div class="card-head"><span>OPENAI API — İSTEĞE BAĞLI</span><b id="openai-state">Kapalı</b></div>
+          <p>Anahtar yalnızca Windows Kimlik Bilgisi Yöneticisi'nde saklanır. ChatGPT aboneliği API bakiyesi sağlamaz.</p>
+          <label>API anahtarı<input id="openai-key" type="password" autocomplete="new-password" placeholder="Bu bilgisayara kaydetmek için girin"></label>
+          <label>Model<input id="openai-model" value="gpt-5-mini" autocomplete="off"></label>
+          <label>Buluta gönderme izni
+            <select id="openai-consent">
+              <option value="local">Hiçbir komutu gönderme (yerel)</option>
+              <option value="non_sensitive">Yalnızca hassas olmayan komutlar</option>
+              <option value="all">Tüm komut metinleri</option>
+            </select>
+          </label>
+          <label class="toggle-row"><span>OpenAI planlayıcıyı etkinleştir</span><input id="openai-enabled" type="checkbox"></label>
+          <div class="settings-actions">
+            <button id="save-openai" class="primary">Güvenli kaydet</button>
+            <button id="test-openai">Bağlantıyı test et</button>
+          </div>
+          <small id="openai-message">Varsayılan: tamamen yerel.</small>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <div id="approval-modal" class="modal" hidden>
+    <div class="modal-card glass">
+      <span class="warning-icon">!</span>
+      <h2>İşlem onayı gerekiyor</h2>
+      <p id="approval-text"></p>
+      <div id="final-confirm-wrap" hidden>
+        <label>Devam etmek için <b>ONAYLIYORUM</b> yazın<input id="final-confirm-input"></label>
+      </div>
+      <div class="modal-actions">
+        <button id="reject-action">İptal</button>
+        <button id="approve-action" class="danger">Onayla ve uygula</button>
+      </div>
+    </div>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
