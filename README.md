@@ -2,7 +2,7 @@
 
 Windows 10/11 bilgisayarda Türkçe yazılı ve sesli komutlarla çalışan yerel kişisel asistan. Bu proje görsel bir demo değildir: Windows araçlarını yerel ajan üzerinden çalıştırır, Chrome sayfalarını eklentiyle DOM üzerinden yönetir ve yapılan işlemlerin sonucunu doğrulamaya çalışır.
 
-> Durum: v0.1 geliştirme adayı. Windows paketi otomatik testten geçmeden “hazır” kabul edilmez.
+> Durum: v0.2 Windows paketi otomatik testlerden ve EXE derlemesinden geçti. Gerçek Windows/Chrome uçtan uca testi kullanıcı bilgisayarında bekliyor.
 
 ## Mimari
 
@@ -92,7 +92,7 @@ Python 3.11 kurulu Windows bilgisayarda:
 ```powershell
 git clone https://github.com/djsimal08/jarvis-yilmaz.git
 cd jarvis-yilmaz
-git switch codex/jarvis-v0.1
+git switch main
 .\KURULUM.bat
 ```
 
@@ -103,18 +103,9 @@ git switch codex/jarvis-v0.1
 | Güvenlik/risk sınıflandırması | Var | Bekliyor |
 | Türkçe temel komut ayrıştırma | Var | Bekliyor |
 | Python sözdizimi | Var | — |
-| Windows EXE oluşturma | GitHub Actions | Son başarılı derleme gerekli |
+| Windows EXE oluşturma | GitHub Actions | Başarılı (v0.2) |
 | Uygulama/pencere/ses kontrolü | — | Kullanıcı PC testi gerekli |
 | Chrome DOM ve sekme kontrolü | — | Eklenti kurulumundan sonra gerekli |
 | Türkçe mikrofon | — | İlk model indirmesinden sonra gerekli |
 
 Gerçek Windows ve Chrome testleri tamamlanmadan proje “tamamlandı” olarak etiketlenmez.
-
-
-## Çoklu AI ve ses sağlayıcıları
-
-Ayarlar ekranından komut planlayıcı olarak Ollama, OpenAI API veya Gemini API; konuşma sesi olarak Windows Türkçe sesi, OpenAI TTS, Gemini TTS veya ElevenLabs seçilebilir. API anahtarları tarayıcı depolamasına ya da kaynak koda yazılmaz; Windows Kimlik Bilgisi Yöneticisi'nde tutulur.
-
-ChatGPT Plus ve Gemini tüketici uygulaması abonelikleri API anahtarı değildir. Uygulamadaki özel konuşma sesleri doğrudan dışarı aktarılamaz. JARVIS, sağlayıcıların geliştirici API'lerinde sunduğu sesleri kullanır.
-
-Örnek doğal komut: `YouTube'dan Hababam Sınıfı'nı aç`. Chrome eklentisi YouTube aramasını açar, sayfanın yüklenmesini bekler, DOM üzerinden ilk görünür video sonucunu bulur ve açar. Giriş isteyen sitelerde mevcut Chrome oturumu kullanılır; JARVIS kayıtlı parolaları okumaz ve CAPTCHA/iki aşamalı doğrulamayı aşmaz.
