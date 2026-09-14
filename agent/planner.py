@@ -65,7 +65,7 @@ class Planner:
         return PlannedAction(tool=tool, arguments=arguments, explanation=explanation, risk=classify(tool, arguments))
 
     def _deterministic(self, raw: str) -> PlannedAction | None:
-        text = raw.casefold().replace("’", "'")
+        text = raw.replace("İ", "i").replace("I", "ı").casefold().replace("’", "'")
         if text in {"dur", "iptal", "sus", "vazgeç"}:
             return self._action("cancel", {}, "Devam eden görevi durdur")
         if ("ram" in text and ("işlemci" in text or "cpu" in text)) or "sistem durumu" in text:
@@ -121,7 +121,7 @@ class Planner:
             return self._action("set_volume", {"percent": 0}, "Sesi sustur")
         if "ekran görüntü" in text and any(word in text for word in ("al", "kaydet")):
             return self._action("take_screenshot", {}, "Ekran görüntüsünü kaydet")
-        match = re.search(r"masaüstünde\s+(.+?)(?:\s+diye)?\s+klasör\s+oluştur", text)
+        match = re.search(r"masaüstünde\s+(.+?)(?:\s+diye)?\s+klasörü?\s+oluştur", text)
         if match:
             name = raw[match.start(1):match.end(1)].strip()
             return self._action("create_folder", {"path": f"Desktop/{name}"}, "Masaüstünde klasör oluştur")
