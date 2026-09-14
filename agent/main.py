@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 from .chrome_bridge import ChromeBridge, ChromeUnavailable
 from .history import HistoryStore
 from .planner import Planner
+from .secret_store import delete_secret, get_secret, set_secret
 from .security import PlannedAction, RiskLevel, allowed_roots
 from .windows_tools import ToolError, WindowsTools
 
@@ -41,7 +42,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "ollama_url": "http://127.0.0.1:11434",
     "ollama_model": "qwen3:4b",
     "enable_local_llm": True,
+    "openai_enabled": False,
+    "openai_consent": "local",
+    "openai_model": "gpt-5-mini",
     "enable_voice_reply": True,
+    "voice_name": "",
     "allowed_file_roots": ["Desktop", "Documents", "Downloads"],
     "extra_applications": {},
 }
@@ -97,6 +102,15 @@ class PairRequest(BaseModel):
 class ProfileRequest(BaseModel):
     user_name: str = Field(min_length=1, max_length=80)
     enable_voice_reply: bool = True
+    voice_name: str = Field(default="", max_length=160)
+
+
+class OpenAISettingsRequest(BaseModel):
+    enabled: bool = False
+    consent: str = Field(default="local", pattern="^(local|non_sensitive|all)$")
+    model: str = Field(default="gpt-5-mini", min_length=1, max_length=100)
+    api_key: str = Field(default="", max_length=500)
+    remove_key: bool = False
 
 
 @app.middleware("http")
@@ -220,6 +234,13 @@ async def status() -> dict[str, Any]:
         "profile": {
             "user_name": CONFIG["user_name"],
             "enable_voice_reply": CONFIG["enable_voice_reply"],
+            "voice_name": CONFIG.get("voice_name", ""),
+        },
+        "openai": {
+            "enabled": bool(CONFIG.get("openai_enabled")),
+            "configured": bool(get_secret("openai_api_key")),
+            "consent": CONFIG.get("openai_consent", "local"),
+            "model": CONFIG.get("openai_model", "gpt-5-mini"),
         },
     }
 
@@ -241,11 +262,11 @@ async def command(payload: CommandRequest) -> dict[str, Any]:
         return {"task_id": task_id, "status": "needs_clarification", "message": question}
 
     await set_mode("PLANNING", action.explanation or "Güvenlik seviyesi kontrol ediliyor…")
-    HISTORY.write(task_id, payload.command, action.public_dict(), int(action.risk), "planned")
+    HISTORY.write(task_id, safe_command_for_history(payload.command, action), public_action_for_history(action), int(action.risk), "planned")
 
     if action.risk > RiskLevel.DIRECT:
         PENDING[task_id] = (payload.command, action)
-        HISTORY.write(task_id, payload.command, action.public_dict(), int(action.risk), "approval_waiting")
+        HISTORY.write(task_id, safe_command_for_history(payload.command, action), public_action_for_history(action), int(action.risk), "approval_waiting")
         STATE["current_task"] = None
         await set_mode("IDLE", "Bu işlem onayınızı bekliyor.")
         return {
@@ -265,7 +286,7 @@ async def confirm(task_id: str, payload: ConfirmationRequest) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail="Onay bekleyen görev bulunamadı.")
     command_text, action = pending
     if not payload.approve:
-        HISTORY.write(task_id, command_text, action.public_dict(), int(action.risk), "cancelled")
+        HISTORY.write(task_id, safe_command_for_history(command_text, action), public_action_for_history(action), int(action.risk), "cancelled")
         await set_mode("IDLE", "İşlem iptal edildi.")
         return {"task_id": task_id, "status": "cancelled", "message": "İşlem uygulanmadı."}
     if action.risk == RiskLevel.FINAL_CONFIRM and payload.confirmation.strip().upper() != "ONAYLIYORUM":
@@ -279,10 +300,36 @@ async def cancel_all() -> dict[str, Any]:
     STATE["cancel_requested"] = True
     STATE["current_task"] = None
     for task_id, (command_text, action) in list(PENDING.items()):
-        HISTORY.write(task_id, command_text, action.public_dict(), int(action.risk), "cancelled")
+        HISTORY.write(task_id, safe_command_for_history(command_text, action), public_action_for_history(action), int(action.risk), "cancelled")
     PENDING.clear()
     await set_mode("IDLE", "Görevler güvenli noktada durduruldu.")
     return {"status": "cancelled", "message": STATE["last_message"]}
+
+
+def public_action_for_history(action: PlannedAction) -> dict[str, Any]:
+    payload = action.public_dict()
+    if action.tool in {"browser_type_text", "file_create"} and "text" in payload["arguments"]:
+        payload["arguments"]["text"] = "***"
+    return payload
+
+
+def safe_command_for_history(command_text: str, action: PlannedAction) -> str:
+    normalized = command_text.replace("İ", "i").replace("I", "ı").casefold()
+    if action.tool in {"browser_type_text", "file_create"} or any(
+        word in normalized for word in ("parola", "şifre", "kart", "cvv", "api anahtar", "token", "iban")
+    ):
+        return "[Hassas komut içeriği kaydedilmedi]"
+    return command_text
+
+
+def safe_result_for_history(action: PlannedAction, result: dict[str, Any]) -> dict[str, Any]:
+    if action.tool == "browser_read_page":
+        return {
+            "title": result.get("title"),
+            "url": result.get("url"),
+            "summarized": bool(result.get("summary")),
+        }
+    return result
 
 
 async def run_action(task_id: str, command_text: str, action: PlannedAction) -> dict[str, Any]:
@@ -296,7 +343,14 @@ async def run_action(task_id: str, command_text: str, action: PlannedAction) -> 
         verified = verify(action, result)
         status_name = "success" if verified else "partial"
         message = result_message(action, result, verified)
-        HISTORY.write(task_id, command_text, action.public_dict(), int(action.risk), status_name, result)
+        HISTORY.write(
+            task_id,
+            safe_command_for_history(command_text, action),
+            action.public_dict(),
+            int(action.risk),
+            status_name,
+            safe_result_for_history(action, result),
+        )
         await set_mode("SPEAKING", message)
         STATE["current_task"] = None
         return {
@@ -308,12 +362,12 @@ async def run_action(task_id: str, command_text: str, action: PlannedAction) -> 
             "message": message,
         }
     except asyncio.CancelledError:
-        HISTORY.write(task_id, command_text, action.public_dict(), int(action.risk), "cancelled")
+        HISTORY.write(task_id, safe_command_for_history(command_text, action), public_action_for_history(action), int(action.risk), "cancelled")
         message = "İşlem iptal edildi."
     except (ToolError, ChromeUnavailable, RuntimeError, ValueError, OSError) as exc:
         message = str(exc)
         HISTORY.write(
-            task_id, command_text, action.public_dict(), int(action.risk), "failed", {"error": message}
+            task_id, command_text, public_action_for_history(action), int(action.risk), "failed", {"error": message}
         )
     STATE["current_task"] = None
     await set_mode("IDLE", message)
@@ -477,8 +531,65 @@ async def clear_history() -> dict[str, Any]:
 async def update_profile(payload: ProfileRequest) -> dict[str, Any]:
     CONFIG["user_name"] = payload.user_name.strip()
     CONFIG["enable_voice_reply"] = payload.enable_voice_reply
+    CONFIG["voice_name"] = payload.voice_name.strip()
     CONFIG_PATH.write_text(json.dumps(CONFIG, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"saved": True}
+
+
+@app.post("/api/openai")
+async def update_openai(payload: OpenAISettingsRequest) -> dict[str, Any]:
+    key = payload.api_key.strip()
+    if key and (len(key) < 20 or any(char.isspace() for char in key)):
+        raise HTTPException(status_code=400, detail="API anahtarı biçimi geçersiz.")
+    if payload.remove_key:
+        delete_secret("openai_api_key")
+    elif key:
+        set_secret("openai_api_key", key)
+    if payload.enabled and payload.consent == "local":
+        raise HTTPException(
+            status_code=400,
+            detail="OpenAI'ı açmak için hangi komutların API'ye gönderilebileceğini seçin.",
+        )
+    if payload.enabled and not get_secret("openai_api_key"):
+        raise HTTPException(status_code=400, detail="Önce OpenAI API anahtarınızı bu bilgisayara kaydedin.")
+    CONFIG["openai_enabled"] = payload.enabled
+    CONFIG["openai_consent"] = payload.consent
+    CONFIG["openai_model"] = payload.model.strip()
+    CONFIG_PATH.write_text(json.dumps(CONFIG, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {
+        "saved": True,
+        "enabled": CONFIG["openai_enabled"],
+        "configured": bool(get_secret("openai_api_key")),
+        "consent": CONFIG["openai_consent"],
+        "model": CONFIG["openai_model"],
+    }
+
+
+@app.post("/api/openai/test")
+async def test_openai() -> dict[str, Any]:
+    api_key = get_secret("openai_api_key")
+    if not api_key:
+        raise HTTPException(status_code=400, detail="OpenAI API anahtarı kayıtlı değil.")
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                "https://api.openai.com/v1/responses",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={
+                    "model": CONFIG.get("openai_model", "gpt-5-mini"),
+                    "store": False,
+                    "input": "Yanıt olarak yalnızca JARVIS_OK yaz.",
+                    "max_output_tokens": 20,
+                },
+            )
+            response.raise_for_status()
+        return {"connected": True, "message": "OpenAI API bağlantısı doğrulandı."}
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="OpenAI API bağlantısı doğrulanamadı. Anahtarı, modeli ve API bakiyesini kontrol edin.",
+        ) from exc
 
 
 @app.post("/api/speech-finished")

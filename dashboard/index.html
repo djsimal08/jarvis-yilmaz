@@ -108,6 +108,7 @@
           <div class="card-head"><span>YEREL AYARLAR</span></div>
           <label>Kullanıcı adı<input id="user-name" maxlength="80" placeholder="Adınız"></label>
           <label class="toggle-row"><span>Türkçe sesli cevap</span><input id="voice-enabled" type="checkbox" checked></label>
+          <label>Türkçe ses<select id="voice-name"><option value="">Otomatik Türkçe ses</option></select></label>
           <button id="save-profile" class="primary">Ayarları bu bilgisayara kaydet</button>
         </article>
         <article class="glass settings-card">
@@ -117,8 +118,23 @@
           <small id="pair-time">Kod hazırlanıyor…</small>
         </article>
         <article class="glass settings-card warning-card">
-          <div class="card-head"><span>OPENAI API</span></div>
-          <p>Bulut bağlantısı bu sürümde varsayılan olarak kapalıdır. Komutlar yerel Ollama ile işlenir; hiçbir anahtar GitHub'a yazılmaz.</p>
+          <div class="card-head"><span>OPENAI API — İSTEĞE BAĞLI</span><b id="openai-state">Kapalı</b></div>
+          <p>Anahtar yalnızca Windows Kimlik Bilgisi Yöneticisi'nde saklanır. ChatGPT aboneliği API bakiyesi sağlamaz.</p>
+          <label>API anahtarı<input id="openai-key" type="password" autocomplete="new-password" placeholder="Bu bilgisayara kaydetmek için girin"></label>
+          <label>Model<input id="openai-model" value="gpt-5-mini" autocomplete="off"></label>
+          <label>Buluta gönderme izni
+            <select id="openai-consent">
+              <option value="local">Hiçbir komutu gönderme (yerel)</option>
+              <option value="non_sensitive">Yalnızca hassas olmayan komutlar</option>
+              <option value="all">Tüm komut metinleri</option>
+            </select>
+          </label>
+          <label class="toggle-row"><span>OpenAI planlayıcıyı etkinleştir</span><input id="openai-enabled" type="checkbox"></label>
+          <div class="settings-actions">
+            <button id="save-openai" class="primary">Güvenli kaydet</button>
+            <button id="test-openai">Bağlantıyı test et</button>
+          </div>
+          <small id="openai-message">Varsayılan: tamamen yerel.</small>
         </article>
       </section>
     </main>

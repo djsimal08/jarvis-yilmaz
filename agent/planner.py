@@ -7,6 +7,7 @@ from urllib.parse import quote_plus
 
 import httpx
 
+from .secret_store import get_secret
 from .security import PlannedAction, classify
 
 
@@ -51,6 +52,10 @@ class Planner:
         deterministic = self._deterministic(command)
         if deterministic:
             return deterministic
+        if self._can_use_openai(command):
+            planned = await self._openai(command)
+            if planned:
+                return planned
         if self.config.get("enable_local_llm", True):
             planned = await self._ollama(command)
             if planned:
@@ -161,6 +166,58 @@ class Planner:
             name = raw[:match.end(1)].strip()
             return self._action("open_application", {"name": name}, f"{name} uygulamasını aç")
         return None
+
+    def _can_use_openai(self, command: str) -> bool:
+        if not self.config.get("openai_enabled", False) or not get_secret("openai_api_key"):
+            return False
+        consent = str(self.config.get("openai_consent", "local"))
+        if consent == "all":
+            return True
+        if consent != "non_sensitive":
+            return False
+        normalized = command.replace("İ", "i").replace("I", "ı").casefold()
+        sensitive = (
+            "parola", "şifre", "kart", "cvv", "api key", "api anahtar", "token",
+            "kimlik", "t.c.", "tc kimlik", "iban", "adres", "gizli", "dosya içeri",
+        )
+        return not any(word in normalized for word in sensitive) and "\\" not in command
+
+    async def _openai(self, command: str) -> PlannedAction | None:
+        api_key = get_secret("openai_api_key")
+        if not api_key:
+            return None
+        model = str(self.config.get("openai_model", "gpt-5-mini")).strip() or "gpt-5-mini"
+        prompt = (
+            "You are a Turkish Windows command planner. Never claim an action happened. "
+            "Choose exactly one allowlisted tool.\n" + TOOL_GUIDE
+        )
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(
+                    "https://api.openai.com/v1/responses",
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json={
+                        "model": model,
+                        "store": False,
+                        "input": [
+                            {"role": "system", "content": [{"type": "input_text", "text": prompt}]},
+                            {"role": "user", "content": [{"type": "input_text", "text": command}]},
+                        ],
+                    },
+                )
+                response.raise_for_status()
+                payload = response.json()
+                pieces: list[str] = []
+                for item in payload.get("output", []):
+                    for content in item.get("content", []):
+                        if content.get("type") in {"output_text", "text"}:
+                            pieces.append(str(content.get("text", "")))
+                raw = "".join(pieces).strip()
+                if raw.startswith("```"):
+                    raw = re.sub(r"^\`\`\`(?:json)?\s*|\s*\`\`\`$", "", raw, flags=re.I)
+                return self._validated_json(raw)
+        except Exception:
+            return None
 
     async def _ollama(self, command: str) -> PlannedAction | None:
         url = str(self.config.get("ollama_url", "http://127.0.0.1:11434")).rstrip("/")

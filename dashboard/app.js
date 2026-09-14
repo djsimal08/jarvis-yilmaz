@@ -6,6 +6,7 @@ const state = {
   pendingTask: null,
   pendingRisk: 0,
   voiceEnabled: true,
+  voiceName: "",
   miniVisible: false,
 };
 
@@ -67,10 +68,18 @@ async function refreshStatus() {
     $("active-pid").textContent = active.pid ? "PID " + active.pid : "PID —";
 
     state.voiceEnabled = Boolean(data.profile?.enable_voice_reply);
+    state.voiceName = data.profile?.voice_name || "";
     $("voice-enabled").checked = state.voiceEnabled;
+    populateVoices();
     if (document.activeElement !== $("user-name")) {
       $("user-name").value = data.profile?.user_name || "";
     }
+    const openai = data.openai || {};
+    $("openai-enabled").checked = Boolean(openai.enabled);
+    $("openai-consent").value = openai.consent || "local";
+    $("openai-model").value = openai.model || "gpt-5-mini";
+    $("openai-state").textContent = openai.enabled ? "Etkin" : (openai.configured ? "Anahtar kayıtlı" : "Kapalı");
+
     const user = data.profile?.user_name;
     $("greeting").textContent = user && user !== "Kullanıcı" ? "Hazırım, " + user + "." : "Hazırım.";
 
@@ -174,13 +183,24 @@ async function confirmPending(approve) {
   refreshHistory();
 }
 
+function populateVoices() {
+  if (!("speechSynthesis" in window)) return;
+  const select = $("voice-name");
+  const current = state.voiceName || select.value;
+  const turkish = speechSynthesis.getVoices().filter((voice) => voice.lang.toLowerCase().startsWith("tr"));
+  select.replaceChildren(new Option("Otomatik Türkçe ses", ""));
+  turkish.forEach((voice) => select.add(new Option(voice.name + " — " + voice.lang, voice.name)));
+  select.value = [...select.options].some((option) => option.value === current) ? current : "";
+}
+
 function speak(text) {
   if (!state.voiceEnabled || !("speechSynthesis" in window)) return;
   speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "tr-TR";
   const voices = speechSynthesis.getVoices();
-  utterance.voice = voices.find((v) => v.lang.toLowerCase().startsWith("tr")) || null;
+  utterance.voice = voices.find((v) => v.name === state.voiceName)
+    || voices.find((v) => v.lang.toLowerCase().startsWith("tr")) || null;
   utterance.rate = 1.02;
   utterance.pitch = 0.92;
   utterance.onstart = () => setOrbMode("SPEAKING");
@@ -264,12 +284,46 @@ async function saveProfile() {
       body: JSON.stringify({
         user_name: $("user-name").value.trim() || "Kullanıcı",
         enable_voice_reply: $("voice-enabled").checked,
+        voice_name: $("voice-name").value,
       }),
     });
     $("jarvis-message").textContent = "Ayarlar yalnızca bu bilgisayara kaydedildi.";
     refreshStatus();
   } catch (error) {
     $("jarvis-message").textContent = error.message;
+  }
+}
+
+async function saveOpenAI() {
+  try {
+    const result = await getJson("/api/openai", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        enabled: $("openai-enabled").checked,
+        consent: $("openai-consent").value,
+        model: $("openai-model").value.trim() || "gpt-5-mini",
+        api_key: $("openai-key").value.trim(),
+        remove_key: false,
+      }),
+    });
+    $("openai-key").value = "";
+    $("openai-message").textContent = result.enabled
+      ? "OpenAI etkin. Yalnızca seçtiğiniz kapsam API'ye gönderilebilir."
+      : "Ayar kaydedildi; planlama yerel çalışıyor.";
+    refreshStatus();
+  } catch (error) {
+    $("openai-message").textContent = error.message;
+  }
+}
+
+async function testOpenAI() {
+  $("openai-message").textContent = "Bağlantı doğrulanıyor…";
+  try {
+    const result = await getJson("/api/openai/test", {method: "POST"});
+    $("openai-message").textContent = result.message;
+  } catch (error) {
+    $("openai-message").textContent = error.message;
   }
 }
 
@@ -298,6 +352,10 @@ $("emergency-stop").addEventListener("click", emergencyStop);
 $("mini-orb-button").addEventListener("click", toggleMiniOrb);
 $("refresh-history").addEventListener("click", refreshHistory);
 $("save-profile").addEventListener("click", saveProfile);
+$("save-openai").addEventListener("click", saveOpenAI);
+$("test-openai").addEventListener("click", testOpenAI);
+speechSynthesis?.addEventListener?.("voiceschanged", populateVoices);
+populateVoices();
 $("reject-action").addEventListener("click", () => confirmPending(false));
 $("approve-action").addEventListener("click", () => confirmPending(true));
 

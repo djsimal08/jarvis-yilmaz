@@ -49,7 +49,11 @@ $Config = @{
     ollama_url = "http://127.0.0.1:11434"
     ollama_model = "qwen3:4b"
     enable_local_llm = $true
+    openai_enabled = $false
+    openai_consent = "local"
+    openai_model = "gpt-5-mini"
     enable_voice_reply = $true
+    voice_name = ""
     allowed_file_roots = @("Desktop", "Documents", "Downloads")
     extra_applications = @{}
 }

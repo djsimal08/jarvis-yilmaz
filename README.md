@@ -75,7 +75,9 @@ JARVIS Ollama'yı `127.0.0.1:11434` üzerinden otomatik algılar. Ollama yoksa a
 
 ## OpenAI API hakkında
 
-ChatGPT Plus üyeliği ile OpenAI API bakiyesi aynı şey değildir. API kullanılacaksa kullanıcı kendi API anahtarını yerel Ayarlar ekranında ayrıca tanımlar. Komutların buluta gönderilmesi ayrı bir açık izin olmadan etkinleştirilmez. Anahtar Windows Kimlik Bilgisi Yöneticisi'nde saklanır ve hiçbir zaman GitHub'a yazılmaz.
+ChatGPT Plus üyeliği ile OpenAI API bakiyesi aynı şey değildir. API kullanılacaksa kullanıcı kendi API anahtarını **JARVIS → Ayarlar → OpenAI API** bölümüne yerel olarak girer. Anahtar Windows Kimlik Bilgisi Yöneticisi'nde saklanır ve hiçbir zaman GitHub'a ya da görev geçmişine yazılmaz.
+
+OpenAI planlayıcı varsayılan olarak kapalıdır. Kullanıcı isterse yalnızca hassas olmayan komutları veya tüm komut metinlerini API'ye gönderme kapsamını açıkça seçer. Tanınan temel komutlar önce cihazda ayrıştırılır; parola, kart, token ve benzeri hassas ifadeler “hassas olmayan” modda buluta gönderilmez. **Bağlantıyı test et** düğmesi küçük bir API isteğiyle anahtar/model/bakiye durumunu doğrular.
 
 ## Kaynak koddan çalıştırma
 
