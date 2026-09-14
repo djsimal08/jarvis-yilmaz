@@ -59,7 +59,7 @@ jobs:
           Copy-Item dist/JARVIS.exe package/JARVIS.exe
           Copy-Item dist/JARVIS-Orb.exe package/JARVIS-Orb.exe
           Copy-Item chrome-extension package/chrome-extension -Recurse
-          Copy-Item install.ps1,KURULUM.bat package/
+          Copy-Item install.ps1,KURULUM.bat,README.md package/
           @"
           JARVIS KURULUMU
           1. ZIP dosyasını tamamen çıkarın.
