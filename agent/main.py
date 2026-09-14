@@ -22,7 +22,7 @@ from .chrome_bridge import ChromeBridge, ChromeUnavailable
 from .history import HistoryStore
 from .planner import Planner
 from .secret_store import delete_secret, get_secret, set_secret
-from .security import PlannedAction, RiskLevel, allowed_roots
+from .security import PlannedAction, RiskLevel, allowed_roots, validate_web_url
 from .windows_tools import ToolError, WindowsTools
 
 
@@ -346,7 +346,7 @@ async def run_action(task_id: str, command_text: str, action: PlannedAction) -> 
         HISTORY.write(
             task_id,
             safe_command_for_history(command_text, action),
-            action.public_dict(),
+            public_action_for_history(action),
             int(action.risk),
             status_name,
             safe_result_for_history(action, result),
@@ -364,7 +364,7 @@ async def run_action(task_id: str, command_text: str, action: PlannedAction) -> 
     except asyncio.CancelledError:
         HISTORY.write(task_id, safe_command_for_history(command_text, action), public_action_for_history(action), int(action.risk), "cancelled")
         message = "İşlem iptal edildi."
-    except (ToolError, ChromeUnavailable, RuntimeError, ValueError, OSError) as exc:
+    except (ToolError, ChromeUnavailable, RuntimeError, ValueError, OSError, KeyError, TypeError) as exc:
         message = str(exc)
         HISTORY.write(
             task_id, command_text, public_action_for_history(action), int(action.risk), "failed", {"error": message}
@@ -406,6 +406,7 @@ async def summarize_page(page: dict[str, Any]) -> str:
 async def execute(action: PlannedAction) -> dict[str, Any]:
     tool, args = action.tool, dict(action.arguments)
     if tool == "browser_open_url":
+        args["url"] = validate_web_url(str(args.get("url", "")))
         if CHROME.connected:
             return await CHROME.execute("openUrl", {"url": args["url"]})
         return await asyncio.to_thread(WINDOWS.browser_open_url, args["url"], True)
