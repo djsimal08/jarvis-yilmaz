@@ -14,6 +14,10 @@ New-Item -ItemType Directory -Force -Path $DataRoot | Out-Null
 $PackagedExe = Join-Path $ProjectRoot "JARVIS.exe"
 if (Test-Path $PackagedExe) {
     Copy-Item $PackagedExe (Join-Path $InstallRoot "JARVIS.exe") -Force
+    $OrbExe = Join-Path $ProjectRoot "JARVIS-Orb.exe"
+    if (Test-Path $OrbExe) {
+        Copy-Item $OrbExe (Join-Path $InstallRoot "JARVIS-Orb.exe") -Force
+    }
     if (Test-Path (Join-Path $ProjectRoot "chrome-extension")) {
         Copy-Item (Join-Path $ProjectRoot "chrome-extension") $InstallRoot -Recurse -Force
     }
