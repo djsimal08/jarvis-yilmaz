@@ -53,7 +53,9 @@ $Config = @{
     allowed_file_roots = @("Desktop", "Documents", "Downloads")
     extra_applications = @{}
 }
-$Config | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $DataRoot "config.json") -Encoding UTF8
+$ConfigJson = $Config | ConvertTo-Json -Depth 5
+$Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText((Join-Path $DataRoot "config.json"), $ConfigJson, $Utf8NoBom)
 
 $CurrentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 & icacls.exe $DataRoot /inheritance:r /grant:r "$($CurrentUser):(OI)(CI)F" | Out-Null

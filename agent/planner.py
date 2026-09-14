@@ -14,7 +14,9 @@ ALLOWED_TOOLS = {
     "open_application", "list_windows", "focus_window", "close_window",
     "force_close_process", "browser_open_url", "browser_new_tab",
     "browser_list_tabs", "browser_read_page", "browser_find_text",
-    "browser_media", "set_volume", "system_status", "take_screenshot",
+    "browser_click_text", "browser_click_nth_link", "browser_type_text",
+    "browser_scroll", "browser_activate_relative_tab", "browser_close_tab",
+    "browser_pin_tab", "browser_media", "set_volume", "system_status", "take_screenshot",
     "file_find", "file_open", "file_create", "create_folder",
     "file_move", "file_rename", "file_delete",
 }
@@ -24,7 +26,10 @@ Return only one JSON object: {"tool":"...", "arguments":{}, "explanation":"..."}
 Allowed tools:
 open_application {name}; list_windows {}; focus_window {title}; close_window {title};
 force_close_process {pid}; browser_open_url {url}; browser_new_tab {url?};
-browser_list_tabs {}; browser_read_page {}; browser_find_text {text};
+browser_list_tabs {}; browser_read_page {summarize?}; browser_find_text {text};
+browser_click_text {text}; browser_click_nth_link {index}; browser_type_text {text};
+browser_scroll {amount}; browser_activate_relative_tab {offset};
+browser_close_tab {}; browser_pin_tab {pinned};
 browser_media {command: play|pause|mute|unmute|fullscreen};
 set_volume {percent}; system_status {}; take_screenshot {filename?};
 file_find {query}; file_open {path}; file_create {path,text};
@@ -57,7 +62,7 @@ class Planner:
         )
 
     def _action(self, tool: str, arguments: dict[str, Any], explanation: str) -> PlannedAction:
-        return PlannedAction(tool=tool, arguments=arguments, explanation=explanation, risk=classify(tool))
+        return PlannedAction(tool=tool, arguments=arguments, explanation=explanation, risk=classify(tool, arguments))
 
     def _deterministic(self, raw: str) -> PlannedAction | None:
         text = raw.casefold().replace("’", "'")
@@ -69,6 +74,16 @@ class Planner:
             return self._action("list_windows", {}, "Açık pencereleri listele")
         if "açık sekme" in text and any(word in text for word in ("say", "listele", "göster")):
             return self._action("browser_list_tabs", {}, "Gerçek Chrome sekmelerini oku")
+        if "bir önceki sekme" in text or "önceki sekmeye" in text:
+            return self._action("browser_activate_relative_tab", {"offset": -1}, "Önceki Chrome sekmesine geç")
+        if "bir sonraki sekme" in text or "sonraki sekmeye" in text:
+            return self._action("browser_activate_relative_tab", {"offset": 1}, "Sonraki Chrome sekmesine geç")
+        if "bu sekmeyi kapat" in text or text == "sekmeyi kapat":
+            return self._action("browser_close_tab", {}, "Aktif Chrome sekmesini kapat")
+        if "sekmeyi sabitle" in text:
+            return self._action("browser_pin_tab", {"pinned": True}, "Aktif Chrome sekmesini sabitle")
+        if "sekmenin sabitlemesini kaldır" in text:
+            return self._action("browser_pin_tab", {"pinned": False}, "Aktif Chrome sekmesinin sabitlemesini kaldır")
         if "sayfayı özetle" in text:
             return self._action("browser_read_page", {"summarize": True}, "Aktif sayfayı oku ve özetle")
         if "sayfayı oku" in text:
@@ -76,6 +91,24 @@ class Planner:
         match = re.search(r"bu sayfada\s+(.+?)\s+(?:yazan yeri )?bul", text)
         if match:
             return self._action("browser_find_text", {"text": match.group(1).strip()}, "Sayfadaki metni bul")
+        ordinal = re.search(r"(?:^|\s)(birinci|ilk|ikinci|üçüncü|dördüncü|beşinci|[1-5]\.?)\s+(?:arama\s+)?sonuc", text)
+        if ordinal and any(word in text for word in ("gir", "aç", "tıkla")):
+            indexes = {"birinci": 1, "ilk": 1, "ikinci": 2, "üçüncü": 3, "dördüncü": 4, "beşinci": 5}
+            token = ordinal.group(1).rstrip(".")
+            index = indexes.get(token, int(token) if token.isdigit() else 1)
+            return self._action("browser_click_nth_link", {"index": index}, f"{index}. görünür sonuca gir")
+        match = re.search(r"(.+?)\s+(?:yazan\s+)?(?:yere|butona|bağlantıya)?\s*(?:tıkla|bas)$", text)
+        if match:
+            label = raw[match.start(1):match.end(1)].strip()
+            return self._action("browser_click_text", {"text": label}, f"{label} öğesine tıkla")
+        if "sayfayı aşağı" in text and ("kaydır" in text or "in" in text):
+            return self._action("browser_scroll", {"amount": 700}, "Sayfayı aşağı kaydır")
+        if "sayfayı yukarı" in text and ("kaydır" in text or "çık" in text):
+            return self._action("browser_scroll", {"amount": -700}, "Sayfayı yukarı kaydır")
+        match = re.search(r"(?:alana|kutusuna|buraya)\s+(.+?)\s+yaz$", text)
+        if match:
+            value = raw[match.start(1):match.end(1)].strip()
+            return self._action("browser_type_text", {"text": value}, "Aktif form alanına metni yaz")
         if "videoyu durdur" in text or "videoyu duraklat" in text:
             return self._action("browser_media", {"command": "pause"}, "Aktif videoyu duraklat")
         if "videoyu oynat" in text or "videoyu devam ettir" in text:

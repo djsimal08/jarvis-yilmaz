@@ -10,7 +10,9 @@ on:
       - "chrome-extension/**"
       - "requirements.txt"
       - "jarvis_launcher.py"
+      - "jarvis_orb.py"
       - "install.ps1"
+      - ".github/workflows/build-windows.yml"
       - "KURULUM.bat"
 
 permissions:

@@ -52,7 +52,7 @@ def load_config() -> dict[str, Any]:
         CONFIG_PATH.write_text(json.dumps(DEFAULT_CONFIG, ensure_ascii=False, indent=2), encoding="utf-8")
         return dict(DEFAULT_CONFIG)
     try:
-        saved = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        saved = json.loads(CONFIG_PATH.read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError):
         saved = {}
     return {**DEFAULT_CONFIG, **saved}
@@ -320,6 +320,35 @@ async def run_action(task_id: str, command_text: str, action: PlannedAction) -> 
     return {"task_id": task_id, "status": "failed", "verified": False, "message": message}
 
 
+async def summarize_page(page: dict[str, Any]) -> str:
+    title = str(page.get("title", "")).strip()
+    headings = [str(item).strip() for item in page.get("headings", []) if str(item).strip()]
+    body = str(page.get("text", "")).strip()
+    if CONFIG.get("enable_local_llm", True) and body:
+        try:
+            import httpx
+            prompt = (
+                "Aşağıdaki web sayfasını yalnızca verilen metne dayanarak Türkçe, kısa ve "
+                "tarafsız biçimde özetle. En önemli 3-6 noktayı belirt.\n\n"
+                f"Başlık: {title}\nMetin:\n{body[:16000]}"
+            )
+            async with httpx.AsyncClient(timeout=45) as client:
+                response = await client.post(
+                    str(CONFIG["ollama_url"]).rstrip("/") + "/api/generate",
+                    json={"model": CONFIG["ollama_model"], "prompt": prompt, "stream": False},
+                )
+                response.raise_for_status()
+                summary = str(response.json().get("response", "")).strip()
+                if summary:
+                    return summary[:4000]
+        except Exception:
+            pass
+    lead = body[:900].rsplit(" ", 1)[0] if len(body) > 900 else body
+    heading_text = "; ".join(headings[:6])
+    parts = [item for item in (title, heading_text, lead) if item]
+    return " — ".join(parts) if parts else "Sayfada özetlenebilir metin bulunamadı."
+
+
 async def execute(action: PlannedAction) -> dict[str, Any]:
     tool, args = action.tool, dict(action.arguments)
     if tool == "browser_open_url":
@@ -331,9 +360,26 @@ async def execute(action: PlannedAction) -> dict[str, Any]:
     if tool == "browser_list_tabs":
         return await CHROME.execute("listTabs")
     if tool == "browser_read_page":
-        return await CHROME.execute("readPage", {"summarize": bool(args.get("summarize"))})
+        page = await CHROME.execute("readPage", {})
+        if args.get("summarize"):
+            page["summary"] = await summarize_page(page)
+        return page
     if tool == "browser_find_text":
         return await CHROME.execute("findText", {"text": args["text"]})
+    if tool == "browser_click_text":
+        return await CHROME.execute("clickText", {"text": args["text"]})
+    if tool == "browser_click_nth_link":
+        return await CHROME.execute("clickNthLink", {"index": int(args["index"])})
+    if tool == "browser_type_text":
+        return await CHROME.execute("typeText", {"text": args["text"], "selector": args.get("selector")})
+    if tool == "browser_scroll":
+        return await CHROME.execute("scroll", {"amount": int(args.get("amount", 700))})
+    if tool == "browser_activate_relative_tab":
+        return await CHROME.execute("activateRelativeTab", {"offset": int(args.get("offset", -1))})
+    if tool == "browser_close_tab":
+        return await CHROME.execute("closeTab", {})
+    if tool == "browser_pin_tab":
+        return await CHROME.execute("pinTab", {"pinned": bool(args.get("pinned", True))})
     if tool == "browser_media":
         return await CHROME.execute("media", {"command": args["command"]})
 
@@ -382,6 +428,14 @@ def verify(action: PlannedAction, result: dict[str, Any]) -> bool:
         "force_close_process": "terminated",
         "focus_window": "focused",
         "close_window": "closed",
+        "browser_click_text": "clicked",
+        "browser_click_nth_link": "clicked",
+        "browser_type_text": "typed",
+        "browser_scroll": "scrolled",
+        "browser_activate_relative_tab": "activated",
+        "browser_close_tab": "closed",
+        "browser_pin_tab": "changed",
+        "browser_media": "changed",
     }
     key = expected_keys.get(action.tool)
     return bool(result.get(key)) if key else True
@@ -399,6 +453,12 @@ def result_message(action: PlannedAction, result: dict[str, Any], verified: bool
         return f"Chrome'da {result.get('count', len(result.get('tabs', [])))} açık sekme var."
     if tool == "take_screenshot":
         return f"Ekran görüntüsünü kaydettim: {result.get('path')}"
+    if tool == "browser_read_page" and result.get("summary"):
+        return str(result["summary"])[:1200]
+    if tool == "browser_find_text":
+        return "Aradığınız metni sayfada buldum ve görünür alana getirdim." if result.get("found") else "Aradığınız metni bu sayfada bulamadım."
+    if tool == "browser_click_nth_link":
+        return f"{result.get('index')}. görünür bağlantıyı açtım ve sonucu doğruladım."
     return "Efendim, işlem tamamlandı ve sonucu doğrulandı."
 
 

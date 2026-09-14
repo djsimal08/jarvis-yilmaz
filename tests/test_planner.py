@@ -37,3 +37,21 @@ def test_unknown_command_does_not_execute():
     action = plan("Şunu hallet")
     assert action.tool == "clarify"
     assert action.risk == RiskLevel.FINAL_CONFIRM
+
+
+def test_second_search_result():
+    action = plan("İkinci sonuca gir")
+    assert action.tool == "browser_click_nth_link"
+    assert action.arguments["index"] == 2
+
+
+def test_previous_tab():
+    action = plan("Bir önceki sekmeye dön")
+    assert action.tool == "browser_activate_relative_tab"
+    assert action.arguments["offset"] == -1
+
+
+def test_publish_click_requires_confirmation():
+    action = plan("Yayınla butonuna bas")
+    assert action.tool == "browser_click_text"
+    assert action.risk == RiskLevel.CONFIRM

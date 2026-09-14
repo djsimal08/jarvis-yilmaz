@@ -17,7 +17,9 @@ DIRECT_TOOLS = {
     "open_application", "list_windows", "focus_window", "close_window",
     "browser_open_url", "browser_new_tab", "browser_list_tabs",
     "browser_read_page", "browser_find_text", "browser_media",
-    "set_volume", "system_status", "take_screenshot",
+    "browser_click_text", "browser_click_nth_link", "browser_type_text",
+    "browser_scroll", "browser_activate_relative_tab", "browser_close_tab",
+    "browser_pin_tab", "set_volume", "system_status", "take_screenshot",
     "file_find", "file_open", "file_create", "create_folder",
 }
 CONFIRM_TOOLS = {
@@ -51,7 +53,14 @@ class SecurityError(ValueError):
     pass
 
 
-def classify(tool: str) -> RiskLevel:
+def classify(tool: str, arguments: dict[str, Any] | None = None) -> RiskLevel:
+    arguments = arguments or {}
+    if tool == "browser_click_text":
+        label = str(arguments.get("text", "")).casefold()
+        if any(word in label for word in ("satın al", "öde", "ödeme", "transfer", "abonelik", "hesabı sil")):
+            return RiskLevel.FINAL_CONFIRM
+        if any(word in label for word in ("gönder", "yayınla", "paylaş", "kaydet", "onayla", "sipariş")):
+            return RiskLevel.CONFIRM
     if tool in FINAL_CONFIRM_TOOLS:
         return RiskLevel.FINAL_CONFIRM
     if tool in CONFIRM_TOOLS:

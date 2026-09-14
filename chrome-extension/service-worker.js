@@ -79,18 +79,35 @@ async function handleMessage(message) {
         };
         break;
       }
-      case "activateTab":
-        await chrome.tabs.update(Number(args.tabId), {active: true});
-        result = {activated: true, tabId: Number(args.tabId)};
+      case "activateTab": {
+        const tabId = args.tabId ? Number(args.tabId) : (await activeTab()).id;
+        await chrome.tabs.update(tabId, {active: true});
+        result = {activated: true, tabId};
         break;
-      case "closeTab":
-        await chrome.tabs.remove(Number(args.tabId));
-        result = {closed: true, tabId: Number(args.tabId)};
+      }
+      case "activateRelativeTab": {
+        const current = await activeTab();
+        const tabs = await chrome.tabs.query({windowId: current.windowId});
+        const position = tabs.findIndex((tab) => tab.id === current.id);
+        const offset = Number(args.offset || -1);
+        const target = tabs[(position + offset + tabs.length) % tabs.length];
+        if (!target?.id) throw new Error("Geçilecek sekme bulunamadı.");
+        await chrome.tabs.update(target.id, {active: true});
+        result = {activated: true, tabId: target.id, title: target.title};
         break;
-      case "pinTab":
-        await chrome.tabs.update(Number(args.tabId), {pinned: Boolean(args.pinned)});
-        result = {changed: true, tabId: Number(args.tabId), pinned: Boolean(args.pinned)};
+      }
+      case "closeTab": {
+        const tabId = args.tabId ? Number(args.tabId) : (await activeTab()).id;
+        await chrome.tabs.remove(tabId);
+        result = {closed: true, tabId};
         break;
+      }
+      case "pinTab": {
+        const tabId = args.tabId ? Number(args.tabId) : (await activeTab()).id;
+        await chrome.tabs.update(tabId, {pinned: Boolean(args.pinned)});
+        result = {changed: true, tabId, pinned: Boolean(args.pinned)};
+        break;
+      }
       default:
         result = await pageCommand(message.action, args);
     }

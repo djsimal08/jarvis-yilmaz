@@ -52,6 +52,22 @@ function clickText(text) {
   return {clicked: true, tag: target.tagName, label: cleanText(target.innerText || target.value)};
 }
 
+function clickNthLink(index) {
+  const preferred = [...document.querySelectorAll("main a[href] h3")]
+    .filter(visible).map((heading) => heading.closest("a")).filter(Boolean);
+  const general = [...document.querySelectorAll("main a[href], article a[href], [role='main'] a[href], body a[href]")]
+    .filter((item) => visible(item) && cleanText(item.innerText || item.getAttribute("aria-label")))
+    .filter((item) => !item.href.startsWith("javascript:") && item.href !== location.href + "#");
+  const links = [...new Set(preferred.length ? preferred : general)];
+  const safeIndex = Number(index) - 1;
+  const target = links[safeIndex];
+  if (!target) return {clicked: false, error: "İstenen sırada görünür bağlantı bulunamadı."};
+  const label = cleanText(target.innerText || target.getAttribute("aria-label"));
+  target.scrollIntoView({behavior: "smooth", block: "center"});
+  target.click();
+  return {clicked: true, index: safeIndex + 1, label, url: target.href};
+}
+
 function typeText(args) {
   const selector = args.selector;
   let element = selector ? document.querySelector(selector) : document.activeElement;
@@ -92,6 +108,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       case "readPage": result = readPage(); break;
       case "findText": result = findText(args.text); break;
       case "clickText": result = clickText(args.text); break;
+      case "clickNthLink": result = clickNthLink(args.index); break;
       case "typeText": result = typeText(args); break;
       case "media": result = media(args.command); break;
       case "scroll":

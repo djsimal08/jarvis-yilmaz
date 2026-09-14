@@ -30,8 +30,12 @@ Windows 10/11 bilgisayarda Türkçe yazılı ve sesli komutlarla çalışan yere
 - `YouTube'u aç`
 - `Google'da PUBG Mobile güncellemesini ara`
 - `Açık sekmeleri say`
-- `Bu sayfayı oku`
+- `Bu sayfayı oku` / `Bu sayfayı özetle`
 - `Bu sayfada LDPlayer yazan yeri bul`
+- `İkinci sonuca gir`
+- `Bir önceki sekmeye dön` / `Bu sekmeyi kapat`
+- `Sayfayı aşağı kaydır`
+- `Yayınla butonuna bas` (onay ister)
 - `Videoyu durdur`
 - `Ses seviyesini yüzde 30 yap`
 - `RAM ve işlemci kullanımını söyle`
@@ -91,7 +95,7 @@ git switch codex/jarvis-v0.1
 | Güvenlik/risk sınıflandırması | Var | Bekliyor |
 | Türkçe temel komut ayrıştırma | Var | Bekliyor |
 | Python sözdizimi | Var | — |
-| Windows EXE oluşturma | GitHub Actions | Bekliyor |
+| Windows EXE oluşturma | GitHub Actions | Son başarılı derleme gerekli |
 | Uygulama/pencere/ses kontrolü | — | Kullanıcı PC testi gerekli |
 | Chrome DOM ve sekme kontrolü | — | Eklenti kurulumundan sonra gerekli |
 | Türkçe mikrofon | — | İlk model indirmesinden sonra gerekli |
