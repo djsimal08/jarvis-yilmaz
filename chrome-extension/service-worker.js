@@ -113,6 +113,12 @@ chrome.runtime.onInstalled.addListener(() => {
   connect();
 });
 chrome.runtime.onStartup.addListener(connect);
+chrome.runtime.onMessage.addListener((message) => {
+  if (message?.type === "reconnect") {
+    socket?.close();
+    setTimeout(connect, 250);
+  }
+});
 chrome.alarms.create("jarvis-keepalive", {periodInMinutes: 0.5});
 chrome.alarms.onAlarm.addListener(() => {
   if (!socket || socket.readyState > WebSocket.OPEN) connect();
