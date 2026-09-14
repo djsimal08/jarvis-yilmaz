@@ -97,7 +97,9 @@ h1 { margin: 4px 0 0; font-size: 24px; font-weight: 500; letter-spacing: 1px; }
 .window-icon { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid #268aba77; color: var(--cyan); background: #092239; }
 .active-window strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; margin-bottom: 7px; }
 .core { min-height: 500px; display: flex; align-items: center; flex-direction: column; justify-content: center; position: relative; overflow: hidden; }
-.core::before { content: ""; position: absolute; width: 78%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, #12a9e514, transparent 68%); }
+.core::before { content: ""; position: absolute; width: 78%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, #12a9e514, transparent 68%); pointer-events: none; z-index: 0; }
+.core > * { position: relative; z-index: 1; }
+.orb, .orb * { pointer-events: none; }
 .orb { position: relative; width: 260px; height: 260px; display: grid; place-items: center; margin-bottom: 20px; }
 .orbit { position: absolute; inset: 7%; border: 1px solid #47dfff80; border-radius: 50%; box-shadow: inset 0 0 15px #21bdea33, 0 0 12px #21bdea33; }
 .orbit::before, .orbit::after { content: ""; position: absolute; width: 7px; height: 7px; border-radius: 50%; background: white; box-shadow: 0 0 15px 5px var(--cyan); }
@@ -128,7 +130,7 @@ h1 { margin: 4px 0 0; font-size: 24px; font-weight: 500; letter-spacing: 1px; }
 .mode-label { padding: 5px 13px; border: 1px solid #51daff66; border-radius: 20px; color: var(--cyan); font-size: 9px; letter-spacing: 3px; }
 .core h2 { margin: 15px 0 5px; font-size: 20px; font-weight: 500; }
 .core p { color: var(--muted); margin: 0; min-height: 42px; text-align: center; max-width: 520px; font-size: 12px; }
-.mic-button { border: 1px solid #4bdcff8c; background: #07334a88; border-radius: 28px; padding: 11px 18px; display: flex; gap: 10px; align-items: center; color: #c9f5ff; }
+.mic-button { border: 1px solid #4bdcff8c; background: #07334a88; border-radius: 28px; padding: 11px 18px; display: flex; gap: 10px; align-items: center; color: #c9f5ff; cursor: pointer; pointer-events: auto; position: relative; z-index: 3; }
 .mic-button span { color: var(--cyan); text-shadow: 0 0 10px var(--cyan); }
 .mic-button.recording { border-color: var(--danger); background: #64162c88; }
 .list { max-height: 190px; overflow: auto; font-size: 11px; }
