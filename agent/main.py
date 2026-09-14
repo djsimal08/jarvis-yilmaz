@@ -25,7 +25,7 @@ from .security import PlannedAction, RiskLevel, allowed_roots
 from .windows_tools import ToolError, WindowsTools
 
 
-APP_ROOT = Path(__file__).resolve().parent.parent
+APP_ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
 STATIC_ROOT = APP_ROOT / "dashboard"
 DATA_ROOT = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "JarvisYilmaz"
 CONFIG_PATH = DATA_ROOT / "config.json"
@@ -421,6 +421,13 @@ async def update_profile(payload: ProfileRequest) -> dict[str, Any]:
     return {"saved": True}
 
 
+@app.post("/api/speech-finished")
+async def speech_finished() -> dict[str, Any]:
+    if STATE["mode"] == "SPEAKING":
+        await set_mode("IDLE", STATE["last_message"])
+    return {"idle": True}
+
+
 @app.post("/api/transcribe")
 async def transcribe(audio: UploadFile = File(...)) -> dict[str, Any]:
     suffix = Path(audio.filename or "speech.webm").suffix or ".webm"
@@ -457,8 +464,15 @@ async def mini_orb(operation: str) -> dict[str, Any]:
     global ORB_PROCESS
     if operation == "show":
         if ORB_PROCESS is None or ORB_PROCESS.poll() is not None:
-            executable = Path(sys.executable).with_name("pythonw.exe") if os.name == "nt" else Path(sys.executable)
-            ORB_PROCESS = subprocess.Popen([str(executable), "-m", "agent.orb"], cwd=APP_ROOT)
+            if getattr(sys, "frozen", False):
+                executable = Path(sys.executable).with_name("JARVIS-Orb.exe")
+                if not executable.exists():
+                    raise HTTPException(status_code=503, detail="Mini orb bileşeni bulunamadı.")
+                command = [str(executable)]
+            else:
+                executable = Path(sys.executable).with_name("pythonw.exe") if os.name == "nt" else Path(sys.executable)
+                command = [str(executable), "-m", "agent.orb"]
+            ORB_PROCESS = subprocess.Popen(command, cwd=APP_ROOT)
         return {"visible": True}
     if operation == "hide":
         if ORB_PROCESS and ORB_PROCESS.poll() is None:
