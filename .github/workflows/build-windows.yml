@@ -31,7 +31,7 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller pytest
       - name: Güvenlik ve komut testleri
-        run: pytest -q
+        run: python -m pytest -q
       - name: Python sözdizimini doğrula
         run: python -m compileall -q agent
       - name: Windows EXE oluştur
