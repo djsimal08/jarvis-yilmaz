@@ -63,6 +63,12 @@ Windows 10/11 bilgisayarda Türkçe yazılı ve sesli komutlarla çalışan yere
 5. JARVIS → Ayarlar ekranındaki 6 haneli kodu eklentinin Ayarlar sayfasına girin.
 6. Dashboard'da Chrome durumu **Bağlı** olmalıdır.
 
+## Ücretsiz Türkçe ses
+
+JARVIS, Windows/Edge WebView içinde kurulu Türkçe sistem seslerini ücretsiz ve API anahtarı olmadan kullanır. JARVIS → Ayarlar bölümünde algılanan Türkçe sesi seçebilirsiniz.
+
+Türkçe ses listede görünmüyorsa Windows 10'da **Ayarlar → Saat ve Dil → Konuşma → Sesleri yönet → Ses ekle → Türkçe** yoluyla Microsoft'un Türkçe ses paketini kurun. Mikrofon metni ilk kullanımda indirilen yerel faster-whisper modeliyle cihazda çözümlenir; ham kayıt işlem bitince silinir.
+
 ## Ücretsiz yerel AI
 
 [Ollama](https://ollama.com/download/windows) kurulduktan sonra:
