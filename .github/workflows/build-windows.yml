@@ -43,11 +43,19 @@ jobs:
           --collect-all webview
           --collect-all faster_whisper
           jarvis_launcher.py
+      - name: Mini orb EXE oluştur
+        shell: pwsh
+        run: >
+          pyinstaller --noconfirm --clean --windowed --name JARVIS-Orb
+          --add-data "dashboard;dashboard"
+          --collect-all webview
+          jarvis_orb.py
       - name: İndirme paketini hazırla
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path package | Out-Null
           Copy-Item dist/JARVIS.exe package/JARVIS.exe
+          Copy-Item dist/JARVIS-Orb.exe package/JARVIS-Orb.exe
           Copy-Item chrome-extension package/chrome-extension -Recurse
           Copy-Item install.ps1,KURULUM.bat package/
           @"
