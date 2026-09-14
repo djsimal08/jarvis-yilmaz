@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+config.json
+*.db
+*.sqlite3
+*.log
+.pytest_cache/
+dist/
+build/
+*.spec
+models/
+agent-data/
