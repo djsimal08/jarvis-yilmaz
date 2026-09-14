@@ -1,37 +1,31 @@
 from __future__ import annotations
 
-import socket
-import subprocess
-import sys
+import threading
 import time
-from pathlib import Path
 
+import uvicorn
 import webview
 
-
-ROOT = Path(__file__).resolve().parent.parent
-HOST, PORT = "127.0.0.1", 8765
+from agent.main import CONFIG, app
 
 
-def wait_for_server(timeout: float = 20) -> None:
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        try:
-            with socket.create_connection((HOST, PORT), timeout=0.5):
-                return
-        except OSError:
-            time.sleep(0.25)
-    raise RuntimeError("JARVIS yerel ajanı başlatılamadı.")
+HOST = str(CONFIG.get("host", "127.0.0.1"))
+PORT = int(CONFIG.get("port", 8765))
 
 
 def main() -> None:
-    server = subprocess.Popen(
-        [sys.executable, "-m", "agent.main"],
-        cwd=ROOT,
-        creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+    server = uvicorn.Server(
+        uvicorn.Config(app, host=HOST, port=PORT, log_level="warning", access_log=False)
     )
+    thread = threading.Thread(target=server.run, name="jarvis-local-agent", daemon=True)
+    thread.start()
+    deadline = time.monotonic() + 20
+    while not server.started and time.monotonic() < deadline:
+        time.sleep(0.1)
+    if not server.started:
+        raise RuntimeError("JARVIS yerel ajanı başlatılamadı.")
+
     try:
-        wait_for_server()
         webview.create_window(
             "JARVIS — Yerel Kontrol Merkezi",
             f"http://{HOST}:{PORT}",
@@ -42,7 +36,8 @@ def main() -> None:
         )
         webview.start(debug=False, private_mode=True)
     finally:
-        server.terminate()
+        server.should_exit = True
+        thread.join(timeout=5)
 
 
 if __name__ == "__main__":
