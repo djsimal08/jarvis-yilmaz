@@ -19,7 +19,7 @@ DIRECT_TOOLS = {
     "browser_read_page", "browser_find_text", "browser_media",
     "browser_click_text", "browser_click_nth_link", "browser_type_text",
     "browser_scroll", "browser_activate_relative_tab", "browser_close_tab",
-    "browser_pin_tab", "set_volume", "system_status", "take_screenshot",
+    "browser_pin_tab", "browser_youtube_search_open", "set_volume", "system_status", "take_screenshot",
     "file_find", "file_open", "file_create", "create_folder",
 }
 CONFIRM_TOOLS = {

@@ -68,6 +68,21 @@ function clickNthLink(index) {
   return {clicked: true, index: safeIndex + 1, label, url: target.href};
 }
 
+function youtubeOpenFirst() {
+  const selectors = [
+    "ytd-video-renderer a#video-title",
+    "ytd-rich-item-renderer a#video-title-link",
+    "ytd-grid-video-renderer a#video-title"
+  ];
+  const target = [...document.querySelectorAll(selectors.join(","))].find(visible);
+  if (!target) return {clicked: false, error: "YouTube'da açılabilir video sonucu bulunamadı."};
+  const title = cleanText(target.getAttribute("title") || target.innerText);
+  const url = target.href;
+  target.scrollIntoView({behavior: "smooth", block: "center"});
+  target.click();
+  return {clicked: true, title, url};
+}
+
 function typeText(args) {
   const selector = args.selector;
   let element = selector ? document.querySelector(selector) : document.activeElement;
@@ -109,6 +124,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       case "findText": result = findText(args.text); break;
       case "clickText": result = clickText(args.text); break;
       case "clickNthLink": result = clickNthLink(args.index); break;
+      case "youtubeOpenFirst": result = youtubeOpenFirst(); break;
       case "typeText": result = typeText(args); break;
       case "media": result = media(args.command); break;
       case "scroll":

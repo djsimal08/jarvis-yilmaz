@@ -13,6 +13,21 @@
   "openai_model": "gpt-5-mini",
   "enable_voice_reply": true,
   "voice_name": "",
-  "allowed_file_roots": ["Desktop", "Documents", "Downloads"],
-  "extra_applications": {}
+  "allowed_file_roots": [
+    "Desktop",
+    "Documents",
+    "Downloads"
+  ],
+  "extra_applications": {},
+  "planner_provider": "ollama",
+  "cloud_consent": "local",
+  "gemini_model": "gemini-3.8-flash",
+  "tts_provider": "windows",
+  "openai_tts_model": "gpt-4o-mini-tts",
+  "openai_tts_voice": "marin",
+  "gemini_tts_model": "gemini-3.1-flash-tts-preview",
+  "gemini_tts_voice": "Kore",
+  "elevenlabs_model": "eleven_multilingual_v2",
+  "elevenlabs_voice_id": "",
+  "tts_instructions": "Sakin, güven veren ve doğal Türkçe konuş."
 }

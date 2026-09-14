@@ -14,13 +14,14 @@ from typing import Any
 
 import psutil
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .chrome_bridge import ChromeBridge, ChromeUnavailable
 from .history import HistoryStore
 from .planner import Planner
+from .providers import ProviderError, synthesize
 from .secret_store import delete_secret, get_secret, set_secret
 from .security import PlannedAction, RiskLevel, allowed_roots, validate_web_url
 from .windows_tools import ToolError, WindowsTools
@@ -45,6 +46,17 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "openai_enabled": False,
     "openai_consent": "local",
     "openai_model": "gpt-5-mini",
+    "planner_provider": "ollama",
+    "cloud_consent": "local",
+    "gemini_model": "gemini-3.8-flash",
+    "tts_provider": "windows",
+    "openai_tts_model": "gpt-4o-mini-tts",
+    "openai_tts_voice": "marin",
+    "gemini_tts_model": "gemini-3.1-flash-tts-preview",
+    "gemini_tts_voice": "Kore",
+    "elevenlabs_model": "eleven_multilingual_v2",
+    "elevenlabs_voice_id": "",
+    "tts_instructions": "Sakin, güven veren ve doğal Türkçe konuş.",
     "enable_voice_reply": True,
     "voice_name": "",
     "allowed_file_roots": ["Desktop", "Documents", "Downloads"],
@@ -103,6 +115,28 @@ class ProfileRequest(BaseModel):
     user_name: str = Field(min_length=1, max_length=80)
     enable_voice_reply: bool = True
     voice_name: str = Field(default="", max_length=160)
+
+
+class ProviderSettingsRequest(BaseModel):
+    planner_provider: str = Field(default="ollama", pattern="^(ollama|openai|gemini)$")
+    cloud_consent: str = Field(default="local", pattern="^(local|non_sensitive|all)$")
+    openai_key: str = Field(default="", max_length=500)
+    openai_model: str = Field(default="gpt-5-mini", min_length=1, max_length=100)
+    gemini_key: str = Field(default="", max_length=500)
+    gemini_model: str = Field(default="gemini-3.8-flash", min_length=1, max_length=100)
+    tts_provider: str = Field(default="windows", pattern="^(windows|openai|gemini|elevenlabs)$")
+    openai_tts_model: str = Field(default="gpt-4o-mini-tts", max_length=100)
+    openai_tts_voice: str = Field(default="marin", max_length=100)
+    gemini_tts_model: str = Field(default="gemini-3.1-flash-tts-preview", max_length=100)
+    gemini_tts_voice: str = Field(default="Kore", max_length=100)
+    elevenlabs_key: str = Field(default="", max_length=500)
+    elevenlabs_model: str = Field(default="eleven_multilingual_v2", max_length=100)
+    elevenlabs_voice_id: str = Field(default="", max_length=200)
+    tts_instructions: str = Field(default="", max_length=500)
+
+
+class TTSRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=4000)
 
 
 class OpenAISettingsRequest(BaseModel):
@@ -241,6 +275,23 @@ async def status() -> dict[str, Any]:
             "configured": bool(get_secret("openai_api_key")),
             "consent": CONFIG.get("openai_consent", "local"),
             "model": CONFIG.get("openai_model", "gpt-5-mini"),
+        },
+        "providers": {
+            "planner_provider": CONFIG.get("planner_provider", "ollama"),
+            "cloud_consent": CONFIG.get("cloud_consent", "local"),
+            "tts_provider": CONFIG.get("tts_provider", "windows"),
+            "openai_configured": bool(get_secret("openai_api_key")),
+            "gemini_configured": bool(get_secret("gemini_api_key")),
+            "elevenlabs_configured": bool(get_secret("elevenlabs_api_key")),
+            "openai_model": CONFIG.get("openai_model", "gpt-5-mini"),
+            "gemini_model": CONFIG.get("gemini_model", "gemini-3.8-flash"),
+            "openai_tts_model": CONFIG.get("openai_tts_model", "gpt-4o-mini-tts"),
+            "openai_tts_voice": CONFIG.get("openai_tts_voice", "marin"),
+            "gemini_tts_model": CONFIG.get("gemini_tts_model", "gemini-3.1-flash-tts-preview"),
+            "gemini_tts_voice": CONFIG.get("gemini_tts_voice", "Kore"),
+            "elevenlabs_model": CONFIG.get("elevenlabs_model", "eleven_multilingual_v2"),
+            "elevenlabs_voice_id": CONFIG.get("elevenlabs_voice_id", ""),
+            "tts_instructions": CONFIG.get("tts_instructions", ""),
         },
     }
 
@@ -435,6 +486,8 @@ async def execute(action: PlannedAction) -> dict[str, Any]:
         return await CHROME.execute("closeTab", {})
     if tool == "browser_pin_tab":
         return await CHROME.execute("pinTab", {"pinned": bool(args.get("pinned", True))})
+    if tool == "browser_youtube_search_open":
+        return await CHROME.execute("youtubeSearchOpen", {"query": str(args["query"])})
     if tool == "browser_media":
         return await CHROME.execute("media", {"command": args["command"]})
 
@@ -490,6 +543,7 @@ def verify(action: PlannedAction, result: dict[str, Any]) -> bool:
         "browser_activate_relative_tab": "activated",
         "browser_close_tab": "closed",
         "browser_pin_tab": "changed",
+        "browser_youtube_search_open": "clicked",
         "browser_media": "changed",
     }
     key = expected_keys.get(action.tool)
@@ -514,6 +568,8 @@ def result_message(action: PlannedAction, result: dict[str, Any], verified: bool
         return "Aradığınız metni sayfada buldum ve görünür alana getirdim." if result.get("found") else "Aradığınız metni bu sayfada bulamadım."
     if tool == "browser_click_nth_link":
         return f"{result.get('index')}. görünür bağlantıyı açtım ve sonucu doğruladım."
+    if tool == "browser_youtube_search_open":
+        return f"YouTube'da aradım ve videoyu açtım: {result.get('title', '')}"
     return "Efendim, işlem tamamlandı ve sonucu doğrulandı."
 
 
@@ -535,6 +591,55 @@ async def update_profile(payload: ProfileRequest) -> dict[str, Any]:
     CONFIG["voice_name"] = payload.voice_name.strip()
     CONFIG_PATH.write_text(json.dumps(CONFIG, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"saved": True}
+
+
+@app.post("/api/providers")
+async def update_providers(payload: ProviderSettingsRequest) -> dict[str, Any]:
+    secrets_to_save = {
+        "openai_api_key": payload.openai_key.strip(),
+        "gemini_api_key": payload.gemini_key.strip(),
+        "elevenlabs_api_key": payload.elevenlabs_key.strip(),
+    }
+    for name, value in secrets_to_save.items():
+        if value:
+            if len(value) < 20 or any(char.isspace() for char in value):
+                raise HTTPException(status_code=400, detail="API anahtarı biçimi geçersiz.")
+            set_secret(name, value)
+
+    required = {
+        "openai": "openai_api_key",
+        "gemini": "gemini_api_key",
+        "elevenlabs": "elevenlabs_api_key",
+    }
+    if payload.planner_provider in {"openai", "gemini"}:
+        if payload.cloud_consent == "local":
+            raise HTTPException(status_code=400, detail="Bulut planlayıcı için gönderme kapsamını seçin.")
+        if not get_secret(required[payload.planner_provider]):
+            raise HTTPException(status_code=400, detail="Seçilen AI sağlayıcısının API anahtarı kayıtlı değil.")
+    if payload.tts_provider in required and not get_secret(required[payload.tts_provider]):
+        raise HTTPException(status_code=400, detail="Seçilen ses sağlayıcısının API anahtarı kayıtlı değil.")
+
+    values = payload.model_dump(exclude={"openai_key", "gemini_key", "elevenlabs_key"})
+    CONFIG.update(values)
+    CONFIG["openai_enabled"] = payload.planner_provider == "openai"
+    CONFIG["openai_consent"] = payload.cloud_consent
+    CONFIG_PATH.write_text(json.dumps(CONFIG, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {"saved": True, "message": "AI ve ses sağlayıcıları bu bilgisayara güvenli biçimde kaydedildi."}
+
+
+@app.post("/api/tts")
+async def text_to_speech(payload: TTSRequest) -> Response:
+    if CONFIG.get("tts_provider", "windows") == "windows":
+        raise HTTPException(status_code=400, detail="Windows sesi tarayıcı içinde çalışır.")
+    try:
+        audio, media_type = await synthesize(CONFIG, payload.text)
+    except ProviderError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return Response(
+        content=audio,
+        media_type=media_type,
+        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+    )
 
 
 @app.post("/api/openai")

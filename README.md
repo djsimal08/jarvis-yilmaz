@@ -109,3 +109,12 @@ git switch codex/jarvis-v0.1
 | Türkçe mikrofon | — | İlk model indirmesinden sonra gerekli |
 
 Gerçek Windows ve Chrome testleri tamamlanmadan proje “tamamlandı” olarak etiketlenmez.
+
+
+## Çoklu AI ve ses sağlayıcıları
+
+Ayarlar ekranından komut planlayıcı olarak Ollama, OpenAI API veya Gemini API; konuşma sesi olarak Windows Türkçe sesi, OpenAI TTS, Gemini TTS veya ElevenLabs seçilebilir. API anahtarları tarayıcı depolamasına ya da kaynak koda yazılmaz; Windows Kimlik Bilgisi Yöneticisi'nde tutulur.
+
+ChatGPT Plus ve Gemini tüketici uygulaması abonelikleri API anahtarı değildir. Uygulamadaki özel konuşma sesleri doğrudan dışarı aktarılamaz. JARVIS, sağlayıcıların geliştirici API'lerinde sunduğu sesleri kullanır.
+
+Örnek doğal komut: `YouTube'dan Hababam Sınıfı'nı aç`. Chrome eklentisi YouTube aramasını açar, sayfanın yüklenmesini bekler, DOM üzerinden ilk görünür video sonucunu bulur ve açar. Giriş isteyen sitelerde mevcut Chrome oturumu kullanılır; JARVIS kayıtlı parolaları okumaz ve CAPTCHA/iki aşamalı doğrulamayı aşmaz.

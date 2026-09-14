@@ -7,6 +7,8 @@ const state = {
   pendingRisk: 0,
   voiceEnabled: true,
   voiceName: "",
+  ttsProvider: "windows",
+  currentAudio: null,
   miniVisible: false,
 };
 
@@ -74,11 +76,26 @@ async function refreshStatus() {
     if (document.activeElement !== $("user-name")) {
       $("user-name").value = data.profile?.user_name || "";
     }
-    const openai = data.openai || {};
-    $("openai-enabled").checked = Boolean(openai.enabled);
-    $("openai-consent").value = openai.consent || "local";
-    $("openai-model").value = openai.model || "gpt-5-mini";
-    $("openai-state").textContent = openai.enabled ? "Etkin" : (openai.configured ? "Anahtar kayıtlı" : "Kapalı");
+    const providers = data.providers || {};
+    state.ttsProvider = providers.tts_provider || "windows";
+    $("planner-provider").value = providers.planner_provider || "ollama";
+    $("cloud-consent").value = providers.cloud_consent || "local";
+    $("tts-provider").value = state.ttsProvider;
+    $("openai-model").value = providers.openai_model || "gpt-5-mini";
+    $("gemini-model").value = providers.gemini_model || "gemini-3.8-flash";
+    $("openai-tts-model").value = providers.openai_tts_model || "gpt-4o-mini-tts";
+    $("openai-tts-voice").value = providers.openai_tts_voice || "marin";
+    $("gemini-tts-model").value = providers.gemini_tts_model || "gemini-3.1-flash-tts-preview";
+    $("gemini-tts-voice").value = providers.gemini_tts_voice || "Kore";
+    $("elevenlabs-model").value = providers.elevenlabs_model || "eleven_multilingual_v2";
+    if (document.activeElement !== $("elevenlabs-voice-id")) {
+      $("elevenlabs-voice-id").value = providers.elevenlabs_voice_id || "";
+    }
+    $("tts-instructions").value = providers.tts_instructions || "Sakin, güven veren ve doğal Türkçe konuş.";
+    $("openai-key-state").textContent = providers.openai_configured ? "Anahtar Windows kasasında kayıtlı" : "Anahtar kayıtlı değil";
+    $("gemini-key-state").textContent = providers.gemini_configured ? "Anahtar Windows kasasında kayıtlı" : "Anahtar kayıtlı değil";
+    $("elevenlabs-key-state").textContent = providers.elevenlabs_configured ? "Anahtar Windows kasasında kayıtlı" : "Anahtar kayıtlı değil";
+    $("provider-state").textContent = (providers.planner_provider || "ollama").toUpperCase() + " / " + state.ttsProvider.toUpperCase();
 
     const user = data.profile?.user_name;
     $("greeting").textContent = user && user !== "Kullanıcı" ? "Hazırım, " + user + "." : "Hazırım.";
@@ -193,8 +210,13 @@ function populateVoices() {
   select.value = [...select.options].some((option) => option.value === current) ? current : "";
 }
 
-function speak(text) {
-  if (!state.voiceEnabled || !("speechSynthesis" in window)) return;
+function finishSpeaking() {
+  setOrbMode("IDLE");
+  fetch("/api/speech-finished", {method: "POST"}).catch(() => {});
+}
+
+function speakWindows(text) {
+  if (!("speechSynthesis" in window)) return;
   speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "tr-TR";
@@ -204,11 +226,50 @@ function speak(text) {
   utterance.rate = 1.02;
   utterance.pitch = 0.92;
   utterance.onstart = () => setOrbMode("SPEAKING");
-  utterance.onend = () => {
-    setOrbMode("IDLE");
-    fetch("/api/speech-finished", {method: "POST"}).catch(() => {});
-  };
+  utterance.onend = finishSpeaking;
   speechSynthesis.speak(utterance);
+}
+
+async function speak(text) {
+  if (!state.voiceEnabled || !text) return;
+  if (state.currentAudio) {
+    state.currentAudio.pause();
+    state.currentAudio = null;
+  }
+  if (state.ttsProvider === "windows") {
+    speakWindows(text);
+    return;
+  }
+  try {
+    setOrbMode("SPEAKING", "Ses hazırlanıyor…");
+    const response = await fetch("/api/tts", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({text}),
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.detail || "Ses üretilemedi.");
+    }
+    const url = URL.createObjectURL(await response.blob());
+    const audio = new Audio(url);
+    state.currentAudio = audio;
+    audio.onplay = () => setOrbMode("SPEAKING");
+    audio.onended = () => {
+      URL.revokeObjectURL(url);
+      state.currentAudio = null;
+      finishSpeaking();
+    };
+    audio.onerror = () => {
+      URL.revokeObjectURL(url);
+      state.currentAudio = null;
+      speakWindows(text);
+    };
+    await audio.play();
+  } catch (error) {
+    $("jarvis-message").textContent = error.message + " Windows sesi kullanılıyor.";
+    speakWindows(text);
+  }
 }
 
 async function toggleRecording() {
@@ -221,6 +282,9 @@ async function toggleRecording() {
     return;
   }
   try {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error("Bu pencerede mikrofon desteği açılamadı. Windows mikrofon iznini kontrol edin.");
+    }
     const stream = await navigator.mediaDevices.getUserMedia({audio: {
       echoCancellation: true, noiseSuppression: true, autoGainControl: true
     }});
@@ -256,6 +320,10 @@ async function toggleRecording() {
 
 async function emergencyStop() {
   speechSynthesis?.cancel();
+  if (state.currentAudio) {
+    state.currentAudio.pause();
+    state.currentAudio = null;
+  }
   if (state.recording) state.recorder.stop();
   try {
     const result = await getJson("/api/cancel", {method: "POST"});
@@ -294,37 +362,43 @@ async function saveProfile() {
   }
 }
 
-async function saveOpenAI() {
+async function saveProviders() {
   try {
-    const result = await getJson("/api/openai", {
+    const result = await getJson("/api/providers", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({
-        enabled: $("openai-enabled").checked,
-        consent: $("openai-consent").value,
-        model: $("openai-model").value.trim() || "gpt-5-mini",
-        api_key: $("openai-key").value.trim(),
-        remove_key: false,
+        planner_provider: $("planner-provider").value,
+        cloud_consent: $("cloud-consent").value,
+        openai_key: $("openai-key").value.trim(),
+        openai_model: $("openai-model").value.trim() || "gpt-5-mini",
+        gemini_key: $("gemini-key").value.trim(),
+        gemini_model: $("gemini-model").value.trim() || "gemini-3.8-flash",
+        tts_provider: $("tts-provider").value,
+        openai_tts_model: $("openai-tts-model").value.trim() || "gpt-4o-mini-tts",
+        openai_tts_voice: $("openai-tts-voice").value,
+        gemini_tts_model: $("gemini-tts-model").value.trim() || "gemini-3.1-flash-tts-preview",
+        gemini_tts_voice: $("gemini-tts-voice").value,
+        elevenlabs_key: $("elevenlabs-key").value.trim(),
+        elevenlabs_model: $("elevenlabs-model").value.trim() || "eleven_multilingual_v2",
+        elevenlabs_voice_id: $("elevenlabs-voice-id").value.trim(),
+        tts_instructions: $("tts-instructions").value.trim(),
       }),
     });
     $("openai-key").value = "";
-    $("openai-message").textContent = result.enabled
-      ? "OpenAI etkin. Yalnızca seçtiğiniz kapsam API'ye gönderilebilir."
-      : "Ayar kaydedildi; planlama yerel çalışıyor.";
+    $("gemini-key").value = "";
+    $("elevenlabs-key").value = "";
+    state.ttsProvider = $("tts-provider").value;
+    $("provider-message").textContent = result.message;
     refreshStatus();
   } catch (error) {
-    $("openai-message").textContent = error.message;
+    $("provider-message").textContent = error.message;
   }
 }
 
-async function testOpenAI() {
-  $("openai-message").textContent = "Bağlantı doğrulanıyor…";
-  try {
-    const result = await getJson("/api/openai/test", {method: "POST"});
-    $("openai-message").textContent = result.message;
-  } catch (error) {
-    $("openai-message").textContent = error.message;
-  }
+function testVoice() {
+  state.ttsProvider = $("tts-provider").value;
+  speak("Merhaba Yılmaz. JARVIS ses bağlantısı başarıyla çalışıyor.");
 }
 
 document.querySelectorAll("[data-command]").forEach((button) => {
@@ -352,8 +426,8 @@ $("emergency-stop").addEventListener("click", emergencyStop);
 $("mini-orb-button").addEventListener("click", toggleMiniOrb);
 $("refresh-history").addEventListener("click", refreshHistory);
 $("save-profile").addEventListener("click", saveProfile);
-$("save-openai").addEventListener("click", saveOpenAI);
-$("test-openai").addEventListener("click", testOpenAI);
+$("save-providers").addEventListener("click", saveProviders);
+$("test-voice").addEventListener("click", testVoice);
 speechSynthesis?.addEventListener?.("voiceschanged", populateVoices);
 populateVoices();
 $("reject-action").addEventListener("click", () => confirmPending(false));

@@ -55,3 +55,9 @@ def test_publish_click_requires_confirmation():
     action = plan("Yayınla butonuna bas")
     assert action.tool == "browser_click_text"
     assert action.risk == RiskLevel.CONFIRM
+
+
+def test_youtube_search_opens_first_video():
+    action = plan("YouTube'dan Hababam Sınıfı'nı aç")
+    assert action.tool == "browser_youtube_search_open"
+    assert "Hababam" in action.arguments["query"]

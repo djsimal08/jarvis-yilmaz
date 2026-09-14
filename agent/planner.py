@@ -17,7 +17,7 @@ ALLOWED_TOOLS = {
     "browser_list_tabs", "browser_read_page", "browser_find_text",
     "browser_click_text", "browser_click_nth_link", "browser_type_text",
     "browser_scroll", "browser_activate_relative_tab", "browser_close_tab",
-    "browser_pin_tab", "browser_media", "set_volume", "system_status", "take_screenshot",
+    "browser_pin_tab", "browser_youtube_search_open", "browser_media", "set_volume", "system_status", "take_screenshot",
     "file_find", "file_open", "file_create", "create_folder",
     "file_move", "file_rename", "file_delete",
 }
@@ -30,7 +30,7 @@ force_close_process {pid}; browser_open_url {url}; browser_new_tab {url?};
 browser_list_tabs {}; browser_read_page {summarize?}; browser_find_text {text};
 browser_click_text {text}; browser_click_nth_link {index}; browser_type_text {text};
 browser_scroll {amount}; browser_activate_relative_tab {offset};
-browser_close_tab {}; browser_pin_tab {pinned};
+browser_close_tab {}; browser_pin_tab {pinned}; browser_youtube_search_open {query};
 browser_media {command: play|pause|mute|unmute|fullscreen};
 set_volume {percent}; system_status {}; take_screenshot {filename?};
 file_find {query}; file_open {path}; file_create {path,text};
@@ -52,8 +52,13 @@ class Planner:
         deterministic = self._deterministic(command)
         if deterministic:
             return deterministic
-        if self._can_use_openai(command):
+        provider = str(self.config.get("planner_provider", "ollama"))
+        if provider == "openai" and self._cloud_allowed(command, "openai"):
             planned = await self._openai(command)
+            if planned:
+                return planned
+        if provider == "gemini" and self._cloud_allowed(command, "gemini"):
+            planned = await self._gemini(command)
             if planned:
                 return planned
         if self.config.get("enable_local_llm", True):
@@ -146,6 +151,14 @@ class Planner:
                 {"url": "https://www.google.com/search?q=" + quote_plus(query)},
                 "Google aramasını aç",
             )
+        match = re.search(r"youtube(?:'da|'dan|da|dan)?\s+(.+?)\s+(?:ara|aç)$", text)
+        if match:
+            query = raw[match.start(1):match.end(1)].strip()
+            return self._action(
+                "browser_youtube_search_open",
+                {"query": query},
+                f"YouTube'da {query} ara ve ilk uygun videoyu aç",
+            )
         if "youtube" in text and ("aç" in text or "gir" in text):
             return self._action("browser_open_url", {"url": "https://www.youtube.com"}, "YouTube'u aç")
         if "yeni sekme" in text and ("aç" in text or "oluştur" in text):
@@ -167,10 +180,12 @@ class Planner:
             return self._action("open_application", {"name": name}, f"{name} uygulamasını aç")
         return None
 
-    def _can_use_openai(self, command: str) -> bool:
-        if not self.config.get("openai_enabled", False) or not get_secret("openai_api_key"):
+    def _cloud_allowed(self, command: str, provider: str) -> bool:
+        if provider not in {"openai", "gemini"}:
             return False
-        consent = str(self.config.get("openai_consent", "local"))
+        if not get_secret(f"{provider}_api_key"):
+            return False
+        consent = str(self.config.get("cloud_consent", self.config.get("openai_consent", "local")))
         if consent == "all":
             return True
         if consent != "non_sensitive":
@@ -181,6 +196,19 @@ class Planner:
             "kimlik", "t.c.", "tc kimlik", "iban", "adres", "gizli", "dosya içeri",
         )
         return not any(word in normalized for word in sensitive) and "\\" not in command
+
+    @staticmethod
+    def _response_text(payload: dict[str, Any]) -> str:
+        if isinstance(payload.get("output_text"), str):
+            return payload["output_text"].strip()
+        pieces: list[str] = []
+        for item in payload.get("output", []):
+            if not isinstance(item, dict):
+                continue
+            for content in item.get("content", []):
+                if isinstance(content, dict) and content.get("type") in {"output_text", "text"}:
+                    pieces.append(str(content.get("text", "")))
+        return "".join(pieces).strip()
 
     async def _openai(self, command: str) -> PlannedAction | None:
         api_key = get_secret("openai_api_key")
@@ -206,13 +234,31 @@ class Planner:
                     },
                 )
                 response.raise_for_status()
-                payload = response.json()
-                pieces: list[str] = []
-                for item in payload.get("output", []):
-                    for content in item.get("content", []):
-                        if content.get("type") in {"output_text", "text"}:
-                            pieces.append(str(content.get("text", "")))
-                raw = "".join(pieces).strip()
+                raw = self._response_text(response.json())
+                if raw.startswith("```"):
+                    raw = re.sub(r"^\`\`\`(?:json)?\s*|\s*\`\`\`$", "", raw, flags=re.I)
+                return self._validated_json(raw)
+        except Exception:
+            return None
+
+    async def _gemini(self, command: str) -> PlannedAction | None:
+        api_key = get_secret("gemini_api_key")
+        if not api_key:
+            return None
+        model = str(self.config.get("gemini_model", "gemini-3.8-flash")).strip() or "gemini-3.8-flash"
+        prompt = (
+            "You are a Turkish Windows command planner. Never claim an action happened. "
+            "Choose exactly one allowlisted tool.\n" + TOOL_GUIDE + "\nUser: " + command
+        )
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(
+                    "https://generativelanguage.googleapis.com/v1beta/interactions",
+                    headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
+                    json={"model": model, "input": prompt},
+                )
+                response.raise_for_status()
+                raw = self._response_text(response.json())
                 if raw.startswith("```"):
                     raw = re.sub(r"^\`\`\`(?:json)?\s*|\s*\`\`\`$", "", raw, flags=re.I)
                 return self._validated_json(raw)

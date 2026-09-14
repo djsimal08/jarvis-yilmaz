@@ -199,3 +199,16 @@ h1 { margin: 4px 0 0; font-size: 24px; font-weight: 500; letter-spacing: 1px; }
 .settings-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 #openai-state { color: var(--cyan); font-size: 11px; }
 #openai-message { min-height: 1.4em; color: #9cc8d4; }
+
+
+.provider-card { grid-column: span 2; }
+.provider-card details {
+  border: 1px solid rgba(59, 219, 255, .16);
+  border-radius: 12px;
+  padding: 11px 13px;
+  background: rgba(2, 12, 24, .48);
+}
+.provider-card summary { cursor: pointer; color: #bcefff; font-size: 12px; letter-spacing: .04em; }
+.provider-card details[open] summary { margin-bottom: 12px; }
+.provider-card input[type="password"] { font-family: monospace; letter-spacing: .08em; }
+@media (max-width: 900px) { .provider-card { grid-column: span 1; } }

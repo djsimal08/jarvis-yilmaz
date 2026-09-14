@@ -45,6 +45,25 @@ async function activeTab() {
   return tab;
 }
 
+async function waitForTabComplete(tabId, timeoutMs = 20000) {
+  const current = await chrome.tabs.get(tabId);
+  if (current.status === "complete") return;
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      chrome.tabs.onUpdated.removeListener(listener);
+      reject(new Error("Sayfanın yüklenmesi zaman aşımına uğradı."));
+    }, timeoutMs);
+    function listener(id, info) {
+      if (id === tabId && info.status === "complete") {
+        clearTimeout(timer);
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }
+    }
+    chrome.tabs.onUpdated.addListener(listener);
+  });
+}
+
 async function pageCommand(action, args) {
   const tab = await activeTab();
   try {
@@ -69,6 +88,16 @@ async function handleMessage(message) {
       case "newTab": {
         const tab = await chrome.tabs.create({url: args.url || "chrome://newtab/", active: true});
         result = {opened: Boolean(tab.id), tabId: tab.id};
+        break;
+      }
+      case "youtubeSearchOpen": {
+        const query = encodeURIComponent(String(args.query || ""));
+        const tab = await chrome.tabs.create({url: "https://www.youtube.com/results?search_query=" + query, active: true});
+        await waitForTabComplete(tab.id);
+        await new Promise((resolve) => setTimeout(resolve, 900));
+        const page = await chrome.tabs.sendMessage(tab.id, {action: "youtubeOpenFirst", arguments: {}});
+        if (!page?.ok) throw new Error(page?.error || "YouTube videosu açılamadı.");
+        result = page.result;
         break;
       }
       case "listTabs": {

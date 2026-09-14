@@ -117,24 +117,75 @@
           <strong id="pair-code" class="pair-code">------</strong>
           <small id="pair-time">Kod hazırlanıyor…</small>
         </article>
-        <article class="glass settings-card warning-card">
-          <div class="card-head"><span>OPENAI API — İSTEĞE BAĞLI</span><b id="openai-state">Kapalı</b></div>
-          <p>Anahtar yalnızca Windows Kimlik Bilgisi Yöneticisi'nde saklanır. ChatGPT aboneliği API bakiyesi sağlamaz.</p>
-          <label>API anahtarı<input id="openai-key" type="password" autocomplete="new-password" placeholder="Bu bilgisayara kaydetmek için girin"></label>
-          <label>Model<input id="openai-model" value="gpt-5-mini" autocomplete="off"></label>
-          <label>Buluta gönderme izni
-            <select id="openai-consent">
-              <option value="local">Hiçbir komutu gönderme (yerel)</option>
+        <article class="glass settings-card provider-card">
+          <div class="card-head"><span>AI VE SES SAĞLAYICILARI</span><b id="provider-state">Yerel</b></div>
+          <p>ChatGPT Plus ve Gemini uygulama aboneliği doğrudan bağlanmaz. İlgili geliştirici API anahtarını yalnızca burada, kendi bilgisayarınızda kaydedin.</p>
+
+          <label>Komutları anlayacak AI
+            <select id="planner-provider">
+              <option value="ollama">Ollama — ücretsiz ve tamamen yerel</option>
+              <option value="openai">OpenAI API</option>
+              <option value="gemini">Gemini API</option>
+            </select>
+          </label>
+          <label>Buluta gönderme kapsamı
+            <select id="cloud-consent">
+              <option value="local">Hiçbir komutu gönderme</option>
               <option value="non_sensitive">Yalnızca hassas olmayan komutlar</option>
               <option value="all">Tüm komut metinleri</option>
             </select>
           </label>
-          <label class="toggle-row"><span>OpenAI planlayıcıyı etkinleştir</span><input id="openai-enabled" type="checkbox"></label>
+
+          <details>
+            <summary>OpenAI API ayarları</summary>
+            <label>OpenAI API anahtarı<input id="openai-key" type="password" autocomplete="new-password" placeholder="Windows kasasına kaydet"></label>
+            <label>Planlayıcı modeli<input id="openai-model" value="gpt-5-mini"></label>
+            <label>Ses modeli<input id="openai-tts-model" value="gpt-4o-mini-tts"></label>
+            <label>OpenAI sesi
+              <select id="openai-tts-voice">
+                <option>marin</option><option>cedar</option><option>coral</option><option>nova</option>
+                <option>alloy</option><option>onyx</option><option>sage</option><option>shimmer</option>
+              </select>
+            </label>
+            <small id="openai-key-state">Anahtar kayıtlı değil</small>
+          </details>
+
+          <details>
+            <summary>Gemini API ayarları</summary>
+            <label>Gemini API anahtarı<input id="gemini-key" type="password" autocomplete="new-password" placeholder="Windows kasasına kaydet"></label>
+            <label>Planlayıcı modeli<input id="gemini-model" value="gemini-3.8-flash"></label>
+            <label>Ses modeli<input id="gemini-tts-model" value="gemini-3.1-flash-tts-preview"></label>
+            <label>Gemini sesi
+              <select id="gemini-tts-voice">
+                <option>Kore</option><option>Achernar</option><option>Gacrux</option><option>Aoede</option>
+                <option>Puck</option><option>Charon</option><option>Orus</option><option>Schedar</option>
+              </select>
+            </label>
+            <small id="gemini-key-state">Anahtar kayıtlı değil</small>
+          </details>
+
+          <details>
+            <summary>ElevenLabs ayarları</summary>
+            <label>ElevenLabs API anahtarı<input id="elevenlabs-key" type="password" autocomplete="new-password" placeholder="Windows kasasına kaydet"></label>
+            <label>Voice ID<input id="elevenlabs-voice-id" placeholder="ElevenLabs ses kimliği"></label>
+            <label>Model<input id="elevenlabs-model" value="eleven_multilingual_v2"></label>
+            <small id="elevenlabs-key-state">Anahtar kayıtlı değil</small>
+          </details>
+
+          <label>JARVIS'in konuşma sesi
+            <select id="tts-provider">
+              <option value="windows">Windows Türkçe sesi — ücretsiz</option>
+              <option value="openai">OpenAI TTS</option>
+              <option value="gemini">Gemini TTS</option>
+              <option value="elevenlabs">ElevenLabs</option>
+            </select>
+          </label>
+          <label>Konuşma tarzı<input id="tts-instructions" value="Sakin, güven veren ve doğal Türkçe konuş."></label>
           <div class="settings-actions">
-            <button id="save-openai" class="primary">Güvenli kaydet</button>
-            <button id="test-openai">Bağlantıyı test et</button>
+            <button id="save-providers" class="primary">Tüm sağlayıcıları güvenli kaydet</button>
+            <button id="test-voice">Seçilen sesi dene</button>
           </div>
-          <small id="openai-message">Varsayılan: tamamen yerel.</small>
+          <small id="provider-message">Anahtarlar ekranda veya geçmişte gösterilmez.</small>
         </article>
       </section>
     </main>
