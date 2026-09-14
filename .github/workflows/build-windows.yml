@@ -39,7 +39,7 @@ jobs:
       - name: Windows EXE oluştur
         shell: pwsh
         run: >
-          pyinstaller --noconfirm --clean --windowed --name JARVIS
+          pyinstaller --noconfirm --clean --onefile --windowed --name JARVIS
           --add-data "dashboard;dashboard"
           --hidden-import win32timezone
           --collect-all webview
@@ -48,7 +48,7 @@ jobs:
       - name: Mini orb EXE oluştur
         shell: pwsh
         run: >
-          pyinstaller --noconfirm --clean --windowed --name JARVIS-Orb
+          pyinstaller --noconfirm --clean --onefile --windowed --name JARVIS-Orb
           --add-data "dashboard;dashboard"
           --collect-all webview
           jarvis_orb.py
