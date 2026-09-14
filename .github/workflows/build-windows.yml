@@ -67,10 +67,9 @@ jobs:
           3. Kurulumdan sonra masaüstündeki JARVIS kısayolunu açın.
           4. Chrome eklentisi için README talimatlarını izleyin.
           "@ | Set-Content package/KURULUM.txt -Encoding UTF8
-          Compress-Archive -Path package/* -DestinationPath JARVIS-Yilmaz-Windows.zip -Force
       - uses: actions/upload-artifact@v4
         with:
           name: JARVIS-Yilmaz-Windows
-          path: JARVIS-Yilmaz-Windows.zip
+          path: package/
           if-no-files-found: error
           retention-days: 30
