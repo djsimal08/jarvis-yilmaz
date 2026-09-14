@@ -1,0 +1,14 @@
+{
+  "host": "127.0.0.1",
+  "port": 8765,
+  "user_name": "Kullanıcı",
+  "language": "tr-TR",
+  "whisper_model": "small",
+  "whisper_compute_type": "int8",
+  "ollama_url": "http://127.0.0.1:11434",
+  "ollama_model": "qwen3:4b",
+  "enable_local_llm": true,
+  "enable_voice_reply": true,
+  "allowed_file_roots": ["Desktop", "Documents", "Downloads"],
+  "extra_applications": {}
+}
